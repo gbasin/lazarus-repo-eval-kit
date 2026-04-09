@@ -3119,11 +3119,16 @@ class RepoEvaluator:
             acceptance_rate=round(new_acceptance_rate, 3),
             rejection_breakdown=rejection_breakdown,
             f2p_results=f2p_results,
+            f2p_skipped_reason=pr_analysis.f2p_skipped_reason,
             avg_loc_per_pr=pr_analysis.avg_loc_per_pr,
             issue_linked_pr_ratio=pr_analysis.issue_linked_pr_ratio,
             feature_accepted_prs=pr_analysis.feature_accepted_prs,
             feature_accepted=pr_analysis.feature_accepted,
             feature_rejection_breakdown=pr_analysis.feature_rejection_breakdown,
+            pr_first_date=pr_analysis.pr_first_date,
+            pr_last_date=pr_analysis.pr_last_date,
+            pr_spread_days=pr_analysis.pr_spread_days,
+            pr_unique_dates_count=pr_analysis.pr_unique_dates_count,
         )
 
     def _run_pr_rubrics(
