@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -419,24 +418,14 @@ Respond with ONLY JSON (use "This change" not "This commit/PR" in rejection_reas
 """
 
 
-# OpenAI Chat Completions model for rubric scoring (alias or snapshot id).
-DEFAULT_OPENAI_MODEL = "gpt-5.1"
-
-
 class QualityEvaluator:
     def __init__(
         self,
         quality_threshold: int = 1,
         max_diff_lines: int = 1000,
-        openai_model: Optional[str] = None,
     ):
         self.quality_threshold = quality_threshold
         self.max_diff_lines = max_diff_lines
-        self.openai_model = (
-            openai_model
-            or os.environ.get("OPENAI_QUALITY_MODEL", "").strip()
-            or DEFAULT_OPENAI_MODEL
-        )
         self.last_rejection_reason = None
 
     def check_f2p_p2p(
@@ -690,15 +679,7 @@ class QualityEvaluator:
             },
             {"role": "user", "content": prompt},
         ]
-        try:
-            return call_llm(
-                messages,
-                model=self.openai_model,
-                temperature=0,
-            )
-        except Exception as e:
-            logger.error(f"OpenAI API failed: {e}")
-            return None
+        return call_llm(messages, temperature=0)
 
     def _parse_json_response(self, response: str) -> Optional[dict]:
         if not response:

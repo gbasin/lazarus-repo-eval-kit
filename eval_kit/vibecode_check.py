@@ -8,8 +8,6 @@ from pathlib import Path
 
 from eval_kit.llm_client import call_llm
 
-DEFAULT_MODEL = "gpt-5.1"
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -1178,9 +1176,7 @@ _LLM_HUMAN_SIGNALS = """
 """
 
 
-def _llm_vibe_analysis(
-    code_samples: str, criteria_results: dict, model: str, lang: str
-) -> dict:
+def _llm_vibe_analysis(code_samples: str, criteria_results: dict, lang: str) -> dict:
     """Single LLM call per repo for AI-generation detection."""
 
     auto_summary = "\n".join(
@@ -1232,7 +1228,6 @@ Return this exact JSON:
                 {"role": "system", "content": _LLM_SYSTEM},
                 {"role": "user", "content": prompt},
             ],
-            model=model,
             temperature=0,
         )
         raw = raw.strip()
@@ -1372,7 +1367,6 @@ def _check_repo(
     token: str,
     clone_base: str,
     verbose_log=None,
-    model: str = DEFAULT_MODEL,
     skip_llm: bool = True,
     sample_tokens: int = 8000,
     existing_repo_path: str | None = None,
@@ -1458,7 +1452,7 @@ def _check_repo(
             root, source_files, result["criteria"], sample_tokens
         )
         if code_samples:
-            llm = _llm_vibe_analysis(code_samples, result["criteria"], model, lang)
+            llm = _llm_vibe_analysis(code_samples, result["criteria"], lang)
             result["llm_analysis"] = llm
             if isinstance(llm, dict) and "verdict" in llm:
                 result["llm_verdict"] = llm.get("verdict", "")

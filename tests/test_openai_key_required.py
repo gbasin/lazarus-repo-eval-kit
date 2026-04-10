@@ -1,29 +1,15 @@
-"""Tests that OPENAI_API_KEY is enforced — no silent skips, no empty columns."""
+"""Tests that the LLM API key is enforced — no silent skips, no empty columns."""
 
 import os
 import subprocess
 import sys
-import types
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 PROJECT_ROOT = str(Path(__file__).parent.parent)
-PYTHON = ["python"]
-
-_openai_stub = types.ModuleType("openai")
-_openai_stub.RateLimitError = Exception
-_openai_stub.APITimeoutError = Exception
-_openai_stub.APIConnectionError = Exception
-_openai_stub.InternalServerError = Exception
-_openai_stub.OpenAI = MagicMock()
-sys.modules.setdefault("openai", _openai_stub)
-
-_pydantic_stub = types.ModuleType("pydantic")
-_pydantic_stub.BaseModel = object
-_pydantic_stub.Field = lambda *a, **kw: None
-sys.modules.setdefault("pydantic", _pydantic_stub)
+PYTHON = [sys.executable]
 
 import eval_kit.llm_client  # noqa: E402
 
@@ -54,7 +40,6 @@ def test_main_exits_when_key_missing():
 def test_main_message_includes_setup_hint():
     result = _run_main()
     assert ".env" in result.stderr
-    assert "openai.com/api-keys" in result.stderr
 
 
 def test_main_exits_with_skip_quality_llm_only():
@@ -65,25 +50,39 @@ def test_main_exits_with_skip_quality_llm_only():
 
 
 def test_main_no_exit_when_all_openai_features_skipped():
-    """With all OpenAI-dependent features skipped the key guard must not fire."""
+    """With all LLM-dependent features skipped the key guard must not fire."""
     result = _run_main("--skip-quality-llm", "--skip-taxonomy", "--skip-pr-rubrics")
     assert "OPENAI_API_KEY" not in result.stderr
 
 
-def test_get_openai_client_raises_without_key():
+def test_validate_api_key_raises_without_key():
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("OPENAI_API_KEY", None)
         with pytest.raises(ValueError, match="OPENAI_API_KEY"):
-            eval_kit.llm_client._get_openai_client()
+            eval_kit.llm_client.validate_api_key("openai")
+
+
+def test_validate_api_key_raises_for_anthropic_without_key():
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+            eval_kit.llm_client.validate_api_key("anthropic")
+
+
+def test_validate_api_key_raises_for_google_without_key():
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("GOOGLE_API_KEY", None)
+        with pytest.raises(ValueError, match="GOOGLE_API_KEY"):
+            eval_kit.llm_client.validate_api_key("google")
 
 
 def test_call_llm_raises_without_api_key():
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("OPENAI_API_KEY", None)
+        os.environ["LLM_PROVIDER"] = "openai"
         with pytest.raises(ValueError, match="OPENAI_API_KEY"):
             eval_kit.llm_client.call_llm(
                 [{"role": "user", "content": "test"}],
-                model="gpt-4o",
             )
 
 
@@ -92,6 +91,7 @@ def test_run_taxonomy_for_accepted_prs_raises_without_key():
 
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("OPENAI_API_KEY", None)
+        os.environ["LLM_PROVIDER"] = "openai"
         results = run_taxonomy_for_accepted_prs(
             accepted_prs=[{"number": 1}],
             owner="o",
@@ -109,5 +109,6 @@ def test_run_taxonomy_classification_raises_without_key():
 
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("OPENAI_API_KEY", None)
+        os.environ["LLM_PROVIDER"] = "openai"
         result = run_taxonomy_classification(owner="o", repo="r", repo_path="/tmp")
         assert result == {}

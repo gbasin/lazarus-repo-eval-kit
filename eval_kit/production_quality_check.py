@@ -38,8 +38,6 @@ from pathlib import Path
 
 from eval_kit.llm_client import call_llm
 
-DEFAULT_MODEL = "gpt-5.1"
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -1473,9 +1471,7 @@ _LLM_CRITERIA_DESC = {
 }
 
 
-def _llm_analysis(
-    code_samples: str, criteria_results: dict, model: str, lang: str
-) -> dict:
+def _llm_analysis(code_samples: str, criteria_results: dict, lang: str) -> dict:
     """Single LLM call per repo. Returns refined scores and new findings per criterion."""
 
     automated_summary = "\n".join(
@@ -1524,7 +1520,6 @@ Rules:
                 {"role": "system", "content": _LLM_SYSTEM},
                 {"role": "user", "content": prompt},
             ],
-            model=model,
             temperature=0,
         )
         raw = raw.strip()
@@ -1610,7 +1605,6 @@ def _check_repo(
     token: str,
     clone_base: str,
     verbose_log=None,
-    model: str = DEFAULT_MODEL,
     skip_llm: bool = False,
     existing_repo_path: str | None = None,
 ) -> dict:
@@ -1709,7 +1703,7 @@ def _check_repo(
             verbose_log(f"    Running LLM analysis for {repo} (lang={lang}) ...")
         code_samples = _smart_sample(root, source_files, result["criteria"])
         if code_samples:
-            llm = _llm_analysis(code_samples, result["criteria"], model, lang)
+            llm = _llm_analysis(code_samples, result["criteria"], lang)
             result["llm_analysis"] = llm
             if "_error" not in llm:
                 for crit_name in CRITERIA_KEYS:

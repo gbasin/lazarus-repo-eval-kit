@@ -3,95 +3,101 @@ import os
 import random
 import time
 
-from openai import (
-    APIConnectionError,
-    APITimeoutError,
-    InternalServerError,
-    OpenAI,
-    RateLimitError,
-)
+import httpx
+from pydantic_ai import Agent
 
-RETRYABLE_ERRORS = (
-    RateLimitError,
-    APITimeoutError,
-    APIConnectionError,
-    InternalServerError,
-)
 MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "8"))
 BASE_DELAY = float(os.environ.get("LLM_BACKOFF_BASE_DELAY", "5.0"))
 
+PROVIDER_PREFIXES = {
+    "openai": "openai",
+    "anthropic": "anthropic",
+    "google": "google-gla",
+}
+API_KEY_ENV_VARS = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GOOGLE_API_KEY",
+}
+DEFAULT_MODELS = {
+    "openai": "gpt-5.1",
+    "anthropic": "claude-sonnet-4-6",
+    "google": "gemini-3-flash-preview",
+}
+RETRYABLE_ERRORS: tuple = (httpx.ConnectError, httpx.TimeoutException)
+
 logger = logging.getLogger(__name__)
 
-_client: OpenAI | None = None
 
-
-def _get_openai_client() -> OpenAI:
-    """Get or create a cached OpenAI client from env vars."""
-    global _client
-    if _client is not None:
-        return _client
-
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
+def validate_api_key(provider: str) -> None:
+    env_var = API_KEY_ENV_VARS.get(provider, "OPENAI_API_KEY")
+    if not os.getenv(env_var, ""):
         raise ValueError(
-            "OPENAI_API_KEY is not set. Set it in your .env file or environment."
+            f"{env_var} is not set. Set it in your .env file or environment."
         )
 
-    kwargs = {"api_key": api_key}
-    base_url = os.getenv("OPENAI_BASE_URL")
-    if base_url:
-        kwargs["base_url"] = base_url
 
-    _client = OpenAI(**kwargs)
-    return _client
+def build_model_string(provider: str) -> str:
+    """Return pydantic-ai model identifier for the given provider.
+
+    Resolution order:
+    1. LLM_MODEL env var (explicit override, model name only, no prefix)
+    2. DEFAULT_MODELS[provider] (built-in per-provider default)
+    """
+    model_name = os.getenv("LLM_MODEL") or DEFAULT_MODELS.get(provider, "gpt-4o")
+    prefix = PROVIDER_PREFIXES.get(provider, "openai")
+    return f"{prefix}:{model_name}"
 
 
-def clear_llm_client():
-    """Clear the cached LLM client."""
-    global _client
-    _client = None
+def clear_llm_client() -> None:
+    """No-op kept for backward compatibility with test fixtures."""
+    pass
 
 
 def call_llm(
     messages: list[dict],
     *,
-    model: str,
+    provider: str | None = None,
     temperature: float = 0,
     max_retries: int = MAX_RETRIES,
     base_delay: float = BASE_DELAY,
     response_format=None,
 ) -> str | object:
-    """Call an OpenAI-compatible LLM with exponential-backoff retry logic.
+    """Call an LLM via pydantic-ai with exponential-backoff retry logic.
 
-    The client is created from OPENAI_API_KEY and optionally OPENAI_BASE_URL
-    env vars via _get_openai_client().
-
-    Set response_format to a Pydantic model to use structured output
-    (beta.chat.completions.parse); omit for plain string content.
-
-    Raises on exhausted retries or non-retryable errors — callers are
-    responsible for their own fallback/sentinel values.
+    Provider: `provider` arg > LLM_PROVIDER env var > "openai".
+    Model: LLM_MODEL env var > built-in DEFAULT_MODELS[provider].
+    Structured output: pass a Pydantic model class as response_format.
     """
-    client = _get_openai_client()
+    effective_provider = (provider or os.environ.get("LLM_PROVIDER", "openai")).lower()
+    validate_api_key(effective_provider)
+
+    system_prompt = ""
+    user_parts: list[str] = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system_prompt = msg["content"]
+        else:
+            user_parts.append(msg["content"])
+    user_prompt = "\n\n".join(user_parts)
+
+    model_str = build_model_string(effective_provider)
 
     last_err: Exception | None = None
     for attempt in range(max_retries):
         try:
             if response_format is not None:
-                response = client.beta.chat.completions.parse(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                    response_format=response_format,
+                agent = Agent(
+                    model_str,
+                    system_prompt=system_prompt,
+                    output_type=response_format,
                 )
-                return response.choices[0].message.parsed
             else:
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                )
-                return response.choices[0].message.content
+                agent = Agent(model_str, system_prompt=system_prompt)
+            result = agent.run_sync(
+                user_prompt, model_settings={"temperature": temperature}
+            )
+            return result.output
         except RETRYABLE_ERRORS as e:
             last_err = e
             delay = base_delay * (2**attempt) + random.uniform(0, 1)

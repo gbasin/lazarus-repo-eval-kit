@@ -161,7 +161,6 @@ def run_taxonomy_for_accepted_prs(
     primary_language: str,
     get_patch: Callable[[dict[str, Any]], str | None],
     *,
-    model: str = "gpt-5.1",
     skip_taxonomy: bool = False,
     pr_number: int | None = None,
     concurrency: int = 8,
@@ -210,25 +209,17 @@ def run_taxonomy_for_accepted_prs(
         meta_nums.append(num)
 
     logger.info(
-        "Running PR-level taxonomy for %s/%s: %d PR(s), model=%s concurrency=%s",
+        "Running PR-level taxonomy for %s/%s: %d PR(s), concurrency=%s",
         owner,
         repo,
         len(items),
-        model,
         concurrency,
     )
 
-    try:
-        classifier = TaxonomyClassifier(
-            model=model,
-            concurrency=max(1, int(concurrency)),
-        )
-        raw_results = classifier.classify_batch(items)
-    except Exception as e:
-        logger.warning(
-            "Taxonomy batch classification failed for %s/%s: %s", owner, repo, e
-        )
-        return []
+    classifier = TaxonomyClassifier(
+        concurrency=max(1, int(concurrency)),
+    )
+    raw_results = classifier.classify_batch(items)
 
     per_pr_out: list[dict[str, Any]] = []
 
@@ -243,12 +234,7 @@ def run_taxonomy_for_accepted_prs(
             "instance_id": iid,
             "repo": item["repo"],
         }
-        if res.get("error"):
-            entry["error"] = res["error"]
-            entry["summary"] = res.get("summary", "")
-            logger.warning("Taxonomy error for PR #%s: %s", num, res["error"])
-        else:
-            entry.update(_serialise_result(res))
+        entry.update(_serialise_result(res))
         per_pr_out.append(entry)
 
     return per_pr_out
@@ -259,7 +245,6 @@ def run_taxonomy_classification(
     repo: str,
     repo_path: str | Path,
     primary_language: str = "",
-    model: str = "gpt-5.1",
     skip_taxonomy: bool = False,
 ) -> dict[str, Any]:
     """Run taxonomy classification on a repository (legacy: README + git log, not PR-based).
@@ -273,38 +258,16 @@ def run_taxonomy_classification(
     git_log = _get_recent_git_log(repo_path)
 
     logger.info(
-        "Running legacy repo-level taxonomy for %s/%s (model=%s) ...",
+        "Running legacy repo-level taxonomy for %s/%s ...",
         owner,
         repo,
-        model,
     )
 
-    try:
-        classifier = TaxonomyClassifier(
-            model=model,
-            concurrency=1,
-        )
-
-        result = classifier.classify(
-            query=query,
-            repo=f"{owner}/{repo}",
-            diff=git_log,
-            language=primary_language,
-        )
-
-        if result.get("error"):
-            logger.warning(
-                "Taxonomy classification error for %s/%s: %s",
-                owner,
-                repo,
-                result["error"],
-            )
-            return {}
-
-        return _serialise_result(result)
-
-    except Exception as e:
-        logger.warning(
-            "Taxonomy classification exception for %s/%s: %s", owner, repo, e
-        )
-        return {}
+    classifier = TaxonomyClassifier(concurrency=1)
+    result = classifier.classify(
+        query=query,
+        repo=f"{owner}/{repo}",
+        diff=git_log,
+        language=primary_language,
+    )
+    return _serialise_result(result)

@@ -68,6 +68,7 @@ from eval_kit.constants import (
     OPEN_SOURCE_KEYWORDS,
     REPO_HEALTH_THRESHOLDS,
 )
+from eval_kit.llm_client import API_KEY_ENV_VARS
 from eval_kit.platform_clients import (
     BitbucketClient,
     GitHubClient,
@@ -3758,13 +3759,6 @@ def main():
         help="Skip LLM benchmark rubrics on accepted PRs (issue/patch/test clarity, FN/FP)",
     )
     parser.add_argument(
-        "--taxonomy-model",
-        type=str,
-        default=os.environ.get("TAXONOMY_MODEL", "gpt-5.1"),
-        help="Model for taxonomy classification (default: gpt-5.1 or TAXONOMY_MODEL env)",
-    )
-
-    parser.add_argument(
         "--taxonomy-concurrency",
         type=int,
         default=int(os.environ.get("LLM_CONCURRENCY", "4")),
@@ -3773,23 +3767,23 @@ def main():
 
     args = parser.parse_args()
 
-    _needs_openai = (
+    needs_llm = (
         (not args.skip_quality_checks and not args.skip_quality_llm)
         or not args.skip_taxonomy
         or not args.skip_pr_rubrics
     )
-    if _needs_openai and not os.environ.get("OPENAI_API_KEY"):
-        print(
-            "Error: OPENAI_API_KEY is required but not set.\n"
-            "\n"
-            "Add it to your .env file:\n"
-            "  OPENAI_API_KEY=sk-your-key-here\n"
-            "\n"
-            "Get a key at: https://platform.openai.com/api-keys\n"
-            "\n",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    if needs_llm:
+        provider = os.environ.get("LLM_PROVIDER", "openai").lower()
+        key_var = API_KEY_ENV_VARS.get(provider, "OPENAI_API_KEY")
+        if not os.environ.get(key_var):
+            print(
+                f"Error: {key_var} is required but not set.\n"
+                "\n"
+                "Add it to your .env file:\n"
+                f"  {key_var}=your-key-here\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.start_date:
         start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(
@@ -3912,7 +3906,6 @@ def main():
                 repo=repo_name,
                 primary_language=report.repo_metrics.primary_language or "",
                 get_patch=_taxonomy_patch,
-                model=args.taxonomy_model,
                 pr_number=args.pr_number,
                 concurrency=args.taxonomy_concurrency,
             )
