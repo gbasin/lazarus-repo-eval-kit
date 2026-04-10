@@ -14,11 +14,6 @@ PYTHON = [sys.executable]
 import eval_kit.llm_client  # noqa: E402
 
 
-@pytest.fixture(autouse=True)
-def clear_cache():
-    eval_kit.llm_client.clear_llm_client()
-
-
 def _run_main(provider=None, *args):
     # Filter out all LLM keys and provider env vars to start from clean slate
     env = {

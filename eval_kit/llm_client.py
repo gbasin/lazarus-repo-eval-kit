@@ -49,11 +49,6 @@ def build_model_string(provider: str) -> str:
     return f"{prefix}:{model_name}"
 
 
-def clear_llm_client() -> None:
-    """No-op kept for backward compatibility with test fixtures."""
-    pass
-
-
 def call_llm(
     messages: list[dict],
     *,

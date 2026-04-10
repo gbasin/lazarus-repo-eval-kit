@@ -28,11 +28,6 @@ def _make_agent_result(content: str) -> MagicMock:
     return result
 
 
-@pytest.fixture(autouse=True)
-def clear_cache():
-    eval_kit.llm_client.clear_llm_client()
-
-
 @pytest.fixture
 def evaluator():
     return QualityEvaluator()
