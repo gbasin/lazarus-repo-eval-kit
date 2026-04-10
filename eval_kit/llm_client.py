@@ -11,11 +11,32 @@ from openai import (
     RateLimitError,
 )
 
-RETRYABLE_ERRORS = (RateLimitError, APITimeoutError, APIConnectionError, InternalServerError)
+RETRYABLE_ERRORS = (
+    RateLimitError,
+    APITimeoutError,
+    APIConnectionError,
+    InternalServerError,
+)
 MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "8"))
 BASE_DELAY = float(os.environ.get("LLM_BACKOFF_BASE_DELAY", "5.0"))
 
 logger = logging.getLogger(__name__)
+
+
+def _get_openai_client():
+    """Create an OpenAI client from the OPENAI_API_KEY env var (loaded via .env)."""
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    if not api_key:
+        raise ValueError(
+            "OPENAI_API_KEY is not set. Set it in your .env file or environment."
+        )
+    try:
+        from openai import OpenAI
+
+        return OpenAI(api_key=api_key)
+    except ImportError:
+        logger.warning("openai package not installed — LLM analysis will be skipped")
+        return None
 
 
 def call_llm(
@@ -39,7 +60,7 @@ def call_llm(
     responsible for their own fallback/sentinel values.
     """
     if client is None:
-        client = OpenAI(api_key=api_key, base_url=base_url)
+        client = OpenAI(api_key=api_key) if api_key else _get_openai_client()
 
     last_err: Exception | None = None
     for attempt in range(max_retries):
@@ -61,7 +82,7 @@ def call_llm(
                 return response.choices[0].message.content
         except RETRYABLE_ERRORS as e:
             last_err = e
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+            delay = base_delay * (2**attempt) + random.uniform(0, 1)
             logger.warning(
                 f"LLM call failed (attempt {attempt + 1}/{max_retries}): "
                 f"{type(e).__name__} — retrying in {delay:.1f}s"

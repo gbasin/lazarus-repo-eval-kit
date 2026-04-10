@@ -2,12 +2,11 @@
 JVM test runners: Maven, Gradle (Java/Scala/Kotlin).
 """
 
-import os
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from .base import TestRunner, TestResult, TestTimeoutError
+from .base import TestResult, TestRunner, TestTimeoutError
 from .parsers import parse_junit_xml
 
 
@@ -18,10 +17,12 @@ def get_required_java_version(repo_path: Path) -> Optional[str]:
     if pom.exists():
         try:
             content = pom.read_text()
-            match = re.search(r'<maven\.compiler\.source>(\d+)</maven\.compiler\.source>', content)
+            match = re.search(
+                r"<maven\.compiler\.source>(\d+)</maven\.compiler\.source>", content
+            )
             if match:
                 return match.group(1)
-            match = re.search(r'<java\.version>(\d+)</java\.version>', content)
+            match = re.search(r"<java\.version>(\d+)</java\.version>", content)
             if match:
                 return match.group(1)
         except Exception:
@@ -36,7 +37,7 @@ def get_required_java_version(repo_path: Path) -> Optional[str]:
                 match = re.search(r'sourceCompatibility\s*=\s*["\']?(\d+)', content)
                 if match:
                     return match.group(1)
-                match = re.search(r'JavaVersion\.VERSION_(\d+)', content)
+                match = re.search(r"JavaVersion\.VERSION_(\d+)", content)
                 if match:
                     return match.group(1)
             except Exception:
@@ -76,13 +77,19 @@ class MavenRunner(TestRunner):
     def check_runtime(self) -> Tuple[bool, str]:
         """Check if Maven/Java is available."""
         # Prefer Maven wrapper if available
-        if not self._check_command_exists("mvn") and not self._check_command_exists("java"):
+        if not self._check_command_exists("mvn") and not self._check_command_exists(
+            "java"
+        ):
             return False, "Maven and Java not found"
 
         try:
-            cmd = ["mvn", "--version"] if self._check_command_exists("mvn") else ["java", "--version"]
+            cmd = (
+                ["mvn", "--version"]
+                if self._check_command_exists("mvn")
+                else ["java", "--version"]
+            )
             returncode, stdout, stderr = self._run_command(cmd, Path.cwd(), timeout=30)
-            return True, stdout.strip().split('\n')[0]
+            return True, stdout.strip().split("\n")[0]
         except Exception as e:
             return False, str(e)
 
@@ -123,7 +130,9 @@ class MavenRunner(TestRunner):
 
         try:
             cmd = [mvn, "dependency:resolve", "-DskipTests", "-q"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"mvn dependency:resolve failed: {stderr}"
             return True, ""
@@ -148,7 +157,9 @@ class MavenRunner(TestRunner):
 
         try:
             cmd = [mvn, "test", "-Dsurefire.useFile=false"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to find and parse surefire XML reports
@@ -184,10 +195,7 @@ class MavenRunner(TestRunner):
                 continue
 
         return TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            duration_seconds=total_time
+            passed=passed, failed=failed, skipped=skipped, duration_seconds=total_time
         )
 
     def _parse_maven_output(self, output: str, returncode: int) -> TestResult:
@@ -201,8 +209,8 @@ class MavenRunner(TestRunner):
         # Look for test results summary
         # Pattern: Tests run: 10, Failures: 2, Errors: 1, Skipped: 1
         summary_match = re.search(
-            r'Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+)',
-            output
+            r"Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+)",
+            output,
         )
 
         if summary_match:
@@ -218,10 +226,7 @@ class MavenRunner(TestRunner):
             skipped = [f"skipped_test_{i}" for i in range(skipped_count)]
 
         result = TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            raw_output=output
+            passed=passed, failed=failed, skipped=skipped, raw_output=output
         )
 
         if result.total_tests == 0 and returncode != 0:
@@ -251,7 +256,9 @@ class GradleRunner(TestRunner):
             score += 30
 
         # Check for settings.gradle
-        if (repo_path / "settings.gradle").exists() or (repo_path / "settings.gradle.kts").exists():
+        if (repo_path / "settings.gradle").exists() or (
+            repo_path / "settings.gradle.kts"
+        ).exists():
             score += 10
 
         # Check for src/main/java or src/main/kotlin structure
@@ -264,13 +271,19 @@ class GradleRunner(TestRunner):
 
     def check_runtime(self) -> Tuple[bool, str]:
         """Check if Gradle/Java is available."""
-        if not self._check_command_exists("gradle") and not self._check_command_exists("java"):
+        if not self._check_command_exists("gradle") and not self._check_command_exists(
+            "java"
+        ):
             return False, "Gradle and Java not found"
 
         try:
-            cmd = ["gradle", "--version"] if self._check_command_exists("gradle") else ["java", "--version"]
+            cmd = (
+                ["gradle", "--version"]
+                if self._check_command_exists("gradle")
+                else ["java", "--version"]
+            )
             returncode, stdout, stderr = self._run_command(cmd, Path.cwd(), timeout=30)
-            return True, stdout.strip().split('\n')[0]
+            return True, stdout.strip().split("\n")[0]
         except Exception as e:
             return False, str(e)
 
@@ -311,11 +324,15 @@ class GradleRunner(TestRunner):
 
         try:
             cmd = [gradle, "dependencies", "--quiet"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 # Try build without tests as fallback
                 cmd2 = [gradle, "build", "-x", "test", "--quiet"]
-                returncode2, _, stderr2 = self._run_command(cmd2, repo_path, timeout=timeout)
+                returncode2, _, stderr2 = self._run_command(
+                    cmd2, repo_path, timeout=timeout
+                )
                 if returncode2 != 0:
                     return False, f"gradle dependencies failed: {stderr}"
             return True, ""
@@ -340,7 +357,9 @@ class GradleRunner(TestRunner):
 
         try:
             cmd = [gradle, "test"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to find and parse JUnit XML reports
@@ -377,10 +396,7 @@ class GradleRunner(TestRunner):
                 continue
 
         return TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            duration_seconds=total_time
+            passed=passed, failed=failed, skipped=skipped, duration_seconds=total_time
         )
 
     def _parse_gradle_output(self, output: str, returncode: int) -> TestResult:
@@ -389,7 +405,9 @@ class GradleRunner(TestRunner):
 
         # Look for test count in Gradle output
         # Pattern: X tests completed, Y failed
-        match = re.search(r'(\d+)\s+tests?\s+completed,?\s+(\d+)\s+failed', output, re.IGNORECASE)
+        match = re.search(
+            r"(\d+)\s+tests?\s+completed,?\s+(\d+)\s+failed", output, re.IGNORECASE
+        )
 
         passed = []
         failed = []
@@ -401,11 +419,7 @@ class GradleRunner(TestRunner):
             passed = [f"test_{i}" for i in range(pass_count)]
             failed = [f"failed_test_{i}" for i in range(fail_count)]
 
-        result = TestResult(
-            passed=passed,
-            failed=failed,
-            raw_output=output
-        )
+        result = TestResult(passed=passed, failed=failed, raw_output=output)
 
         if result.total_tests == 0 and returncode != 0:
             result.error = f"gradle test failed with exit code {returncode}"
@@ -448,7 +462,7 @@ class SbtRunner(TestRunner):
             returncode, stdout, stderr = self._run_command(
                 ["sbt", "--version"], Path.cwd(), timeout=60
             )
-            return True, stdout.strip().split('\n')[0]
+            return True, stdout.strip().split("\n")[0]
         except Exception as e:
             return False, str(e)
 
@@ -483,7 +497,9 @@ class SbtRunner(TestRunner):
         """Install sbt dependencies."""
         try:
             cmd = ["sbt", "update"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"sbt update failed: {stderr}"
             return True, ""
@@ -500,7 +516,9 @@ class SbtRunner(TestRunner):
         """Run sbt tests and return results."""
         try:
             cmd = ["sbt", "test"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to find JUnit XML reports
@@ -536,10 +554,7 @@ class SbtRunner(TestRunner):
                 continue
 
         return TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            duration_seconds=total_time
+            passed=passed, failed=failed, skipped=skipped, duration_seconds=total_time
         )
 
     def _parse_sbt_output(self, output: str, returncode: int) -> TestResult:
@@ -552,22 +567,18 @@ class SbtRunner(TestRunner):
         # Look for ScalaTest output patterns
         # [info] - test name
         # [info] + test name (passed)
-        for line in output.split('\n'):
-            if '[info] +' in line or 'passed' in line.lower():
+        for line in output.split("\n"):
+            if "[info] +" in line or "passed" in line.lower():
                 # Extract test name
-                match = re.search(r'\[info\]\s*[+-]\s*(.+)', line)
+                match = re.search(r"\[info\]\s*[+-]\s*(.+)", line)
                 if match:
                     passed.append(match.group(1).strip())
-            elif '[error]' in line and 'failed' in line.lower():
-                match = re.search(r'\[error\]\s*(.+)', line)
+            elif "[error]" in line and "failed" in line.lower():
+                match = re.search(r"\[error\]\s*(.+)", line)
                 if match:
                     failed.append(match.group(1).strip())
 
-        result = TestResult(
-            passed=passed,
-            failed=failed,
-            raw_output=output
-        )
+        result = TestResult(passed=passed, failed=failed, raw_output=output)
 
         if result.total_tests == 0 and returncode != 0:
             result.error = f"sbt test failed with exit code {returncode}"

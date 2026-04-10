@@ -59,13 +59,14 @@ class CargoRunner(TestRunner):
     def get_current_version(self) -> Optional[str]:
         """Return current Rust version as major.minor."""
         import re
+
         if not self._check_command_exists("rustc"):
             return None
         try:
             returncode, stdout, _ = self._run_command(
                 ["rustc", "--version"], Path.cwd(), timeout=10
             )
-            match = re.search(r'(\d+\.\d+)', stdout)
+            match = re.search(r"(\d+\.\d+)", stdout)
             return match.group(1) if match else None
         except Exception:
             return None
@@ -133,7 +134,9 @@ class CargoRunner(TestRunner):
         try:
             # Run cargo test with verbose output
             cmd = ["cargo", "test", "--", "--format=pretty"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Parse output

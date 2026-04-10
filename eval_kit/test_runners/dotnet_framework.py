@@ -30,7 +30,6 @@ class DotNetFrameworkRunner(TestRunner):
         # Check for .csproj files with TargetFrameworkVersion (not TargetFramework)
         csproj_files = list(repo_path.rglob("*.csproj"))
         is_framework = False
-        has_tests = False
 
         for csproj in csproj_files:
             try:
@@ -43,8 +42,15 @@ class DotNetFrameworkRunner(TestRunner):
                     score += 50
 
                     # Check for test frameworks
-                    if any(fw in content.lower() for fw in ["mstest", "nunit", "xunit", "microsoft.visualstudio.testplatform"]):
-                        has_tests = True
+                    if any(
+                        fw in content.lower()
+                        for fw in [
+                            "mstest",
+                            "nunit",
+                            "xunit",
+                            "microsoft.visualstudio.testplatform",
+                        ]
+                    ):
                         score += 30
                     break
 
@@ -70,7 +76,7 @@ class DotNetFrameworkRunner(TestRunner):
                     ["msbuild", "-version"], Path.cwd(), timeout=30
                 )
                 if returncode == 0:
-                    version = stdout.strip().split('\n')[-1] if stdout else "unknown"
+                    version = stdout.strip().split("\n")[-1] if stdout else "unknown"
                     return True, f"MSBuild {version}"
             except Exception:
                 pass
@@ -79,16 +85,26 @@ class DotNetFrameworkRunner(TestRunner):
         if self._check_command_exists("vswhere"):
             try:
                 returncode, stdout, stderr = self._run_command(
-                    ["vswhere", "-latest", "-requires", "Microsoft.Component.MSBuild",
-                     "-find", "MSBuild\\**\\Bin\\MSBuild.exe"],
-                    Path.cwd(), timeout=30
+                    [
+                        "vswhere",
+                        "-latest",
+                        "-requires",
+                        "Microsoft.Component.MSBuild",
+                        "-find",
+                        "MSBuild\\**\\Bin\\MSBuild.exe",
+                    ],
+                    Path.cwd(),
+                    timeout=30,
                 )
                 if returncode == 0 and stdout.strip():
-                    return True, f"MSBuild found via vswhere"
+                    return True, "MSBuild found via vswhere"
             except Exception:
                 pass
 
-        return False, "MSBuild not found. Install Visual Studio Build Tools or .NET Framework SDK."
+        return (
+            False,
+            "MSBuild not found. Install Visual Studio Build Tools or .NET Framework SDK.",
+        )
 
     def _find_msbuild(self) -> Optional[str]:
         """Find MSBuild executable path."""
@@ -147,7 +163,7 @@ class DotNetFrameworkRunner(TestRunner):
                 [msbuild, "-version"], Path.cwd(), timeout=30
             )
             # Return the last line which contains version
-            lines = stdout.strip().split('\n')
+            lines = stdout.strip().split("\n")
             return lines[-1] if lines else None
         except Exception:
             return None
@@ -157,7 +173,7 @@ class DotNetFrameworkRunner(TestRunner):
         for csproj in repo_path.rglob("*.csproj"):
             try:
                 content = csproj.read_text()
-                match = re.search(r'<TargetFrameworkVersion>v([\d.]+)', content)
+                match = re.search(r"<TargetFrameworkVersion>v([\d.]+)", content)
                 if match:
                     return match.group(1)
             except Exception:
@@ -194,8 +210,17 @@ class DotNetFrameworkRunner(TestRunner):
             else:
                 target = str(repo_path)
 
-            cmd = [msbuild, target, "/t:Restore;Build", "/p:Configuration=Debug", "/m", "/verbosity:minimal"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            cmd = [
+                msbuild,
+                target,
+                "/t:Restore;Build",
+                "/p:Configuration=Debug",
+                "/m",
+                "/verbosity:minimal",
+            ]
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
 
             if returncode != 0:
                 return False, f"MSBuild failed: {stderr or stdout}"
@@ -241,8 +266,16 @@ class DotNetFrameworkRunner(TestRunner):
                         continue
 
                     # Skip known dependencies
-                    skip_patterns = ["Microsoft", "VisualStudio", "System.", "EntityFramework",
-                                     "Newtonsoft", "Moq", "nunit", "xunit"]
+                    skip_patterns = [
+                        "Microsoft",
+                        "VisualStudio",
+                        "System.",
+                        "EntityFramework",
+                        "Newtonsoft",
+                        "Moq",
+                        "nunit",
+                        "xunit",
+                    ]
                     if any(p in dll_name for p in skip_patterns):
                         continue
 
@@ -254,6 +287,7 @@ class DotNetFrameworkRunner(TestRunner):
                     return TestResult(error="No test DLLs found in bin/Debug")
 
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.info(f"Found test DLLs: {test_dlls}")
 
@@ -265,7 +299,9 @@ class DotNetFrameworkRunner(TestRunner):
                     "/TestAdapterPath:.",  # Look for adapters in current dir
                 ]
 
-                returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+                returncode, stdout, stderr = self._run_command(
+                    cmd, repo_path, timeout=timeout
+                )
                 output = stdout + "\n" + stderr
                 logger.info(f"vstest returncode: {returncode}")
                 logger.debug(f"vstest output: {output[:1000]}")
@@ -293,12 +329,12 @@ class DotNetFrameworkRunner(TestRunner):
 
         # Look for summary: Total tests: X. Passed: Y. Failed: Z. Skipped: W.
         match = re.search(
-            r'Total tests:\s*(\d+).*?Passed:\s*(\d+).*?Failed:\s*(\d+).*?Skipped:\s*(\d+)',
-            output, re.DOTALL
+            r"Total tests:\s*(\d+).*?Passed:\s*(\d+).*?Failed:\s*(\d+).*?Skipped:\s*(\d+)",
+            output,
+            re.DOTALL,
         )
 
         if match:
-            total = int(match.group(1))
             pass_count = int(match.group(2))
             fail_count = int(match.group(3))
             skip_count = int(match.group(4))
@@ -308,10 +344,7 @@ class DotNetFrameworkRunner(TestRunner):
             skipped = [f"skipped_test_{i}" for i in range(skip_count)]
 
         result = TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            raw_output=output
+            passed=passed, failed=failed, skipped=skipped, raw_output=output
         )
 
         if result.total_tests == 0:

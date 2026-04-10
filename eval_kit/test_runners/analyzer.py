@@ -6,15 +6,13 @@ F2P/P2P implementation with 3-run test approach.
 import logging
 import os
 import subprocess
-import sys
 from pathlib import Path
-from typing import List, Optional, Dict, Set
+from typing import Dict, List, Optional, Set
 
-from .base import TestRunner, TestResult, F2PP2PResult, TestTimeoutError
+from eval_kit.repo_evaluator_helpers import get_language_config, is_test_file_path
+
+from .base import F2PP2PResult, TestResult, TestRunner, TestTimeoutError
 from .registry import get_runner
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from repo_evaluator_helpers import is_test_file_path, get_language_config
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +57,7 @@ def _is_project_dir(path: Path) -> bool:
 
 
 def _extract_package_from_path(file_path: str, repo_path: Path) -> Optional[Path]:
-    parts = file_path.split('/')
+    parts = file_path.split("/")
     if len(parts) < 2:
         return None
     candidate = repo_path / parts[0]
@@ -95,7 +93,7 @@ def generate_test_report(
     tests_base: Dict[str, str],
     tests_before: Dict[str, str],
     tests_after: Dict[str, str],
-    has_new_test_file: bool = False
+    has_new_test_file: bool = False,
 ) -> Dict[str, List[str]]:
     """
     Generate F2P/P2P/F2F/P2F report using 3-run logic.
@@ -116,9 +114,8 @@ def generate_test_report(
         "FAIL_TO_FAIL": [],
     }
 
-    has_mixed_before = (
-        any(s in PASSED_STATUSES for s in tests_before.values()) and
-        any(s in FAILED_STATUSES for s in tests_before.values())
+    has_mixed_before = any(s in PASSED_STATUSES for s in tests_before.values()) and any(
+        s in FAILED_STATUSES for s in tests_before.values()
     )
 
     if has_new_test_file or not has_mixed_before:
@@ -180,22 +177,26 @@ def _result_to_status_map(result: TestResult) -> Dict[str, str]:
 
 
 UNSTABLE_PATTERNS = [
-    r'\d{10,13}',  # Unix timestamps (10-13 digits)
-    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}',  # ISO dates
-    r'built in \d+(\.\d+)?s',  # Build times
-    r'in \d+(\.\d+)?\s*(ms|s|sec|seconds)',  # Duration patterns
-    r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}',  # UUIDs
-    r'0x[a-f0-9]{8,}',  # Memory addresses
+    r"\d{10,13}",  # Unix timestamps (10-13 digits)
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}",  # ISO dates
+    r"built in \d+(\.\d+)?s",  # Build times
+    r"in \d+(\.\d+)?\s*(ms|s|sec|seconds)",  # Duration patterns
+    r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",  # UUIDs
+    r"0x[a-f0-9]{8,}",  # Memory addresses
 ]
+
 
 def _infer_exit_code(result: TestResult) -> Optional[int]:
     """Best-effort exit code inference from error/output when runners don't set it."""
     import re
+
     haystacks = [result.error or "", result.raw_output or ""]
     for text in haystacks:
         if not text:
             continue
-        match = re.search(r'\b(?:exit|error)\s+code\b[:\s]*([0-9]+)', text, re.IGNORECASE)
+        match = re.search(
+            r"\b(?:exit|error)\s+code\b[:\s]*([0-9]+)", text, re.IGNORECASE
+        )
         if match:
             try:
                 return int(match.group(1))
@@ -203,14 +204,21 @@ def _infer_exit_code(result: TestResult) -> Optional[int]:
                 continue
     return None
 
+
 def _is_install_error(result: TestResult) -> bool:
     if not result.error:
         return False
     msg = result.error.lower()
-    return msg.startswith("install failed") or msg.startswith("install timeout") or msg.startswith("install error")
+    return (
+        msg.startswith("install failed")
+        or msg.startswith("install timeout")
+        or msg.startswith("install error")
+    )
+
 
 def _has_unstable_pattern(test_name: str) -> bool:
     import re
+
     for pattern in UNSTABLE_PATTERNS:
         if re.search(pattern, test_name, re.IGNORECASE):
             return True
@@ -237,7 +245,7 @@ def validate_f2p_p2p_result(
     all_f2p_p2p = f2p_tests + p2p_tests
 
     # Unstable test names (JS/TS/C++ only)
-    if language and language.lower() in ('javascript', 'typescript', 'c++', 'cpp'):
+    if language and language.lower() in ("javascript", "typescript", "c++", "cpp"):
         for test in all_f2p_p2p:
             if _has_unstable_pattern(test):
                 return "unstable_test_name"
@@ -269,7 +277,11 @@ def validate_f2p_p2p_result(
 
     # Test didn't run in all 3 stages
     for test in all_f2p_p2p:
-        if test not in tests_base and test not in tests_before and test not in tests_after:
+        if (
+            test not in tests_base
+            and test not in tests_before
+            and test not in tests_after
+        ):
             return "test_not_in_all_stages"
         ran_count = sum([test in tests_base, test in tests_before, test in tests_after])
         if ran_count < 3:
@@ -294,7 +306,9 @@ class F2PP2PAnalyzer:
         self.install_timeout = install_timeout
         self.test_timeout = test_timeout
         self.language_hint = language_hint
-        self.language_config = get_language_config(language_hint) if language_hint else {}
+        self.language_config = (
+            get_language_config(language_hint) if language_hint else {}
+        )
 
     def analyze(
         self,
@@ -320,19 +334,25 @@ class F2PP2PAnalyzer:
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
-            default_branch = branch_result.stdout.strip().replace("origin/", "") if branch_result.returncode == 0 else "main"
+            default_branch = (
+                branch_result.stdout.strip().replace("origin/", "")
+                if branch_result.returncode == 0
+                else "main"
+            )
             subprocess.run(
                 ["git", "checkout", default_branch, "--force"],
                 cwd=self.repo_path,
                 capture_output=True,
-                timeout=30
+                timeout=30,
             )
         except Exception:
             pass
 
-        changed_files = pr_files if pr_files else self._get_all_changed_files(base_sha, head_sha)
+        changed_files = (
+            pr_files if pr_files else self._get_all_changed_files(base_sha, head_sha)
+        )
         if not changed_files:
             result.error = "Could not get changed files from PR"
             result.error_code = "NO_CHANGED_FILES"
@@ -352,8 +372,12 @@ class F2PP2PAnalyzer:
         if not affected_packages:
             affected_packages = [self.repo_path]
 
-        logger.info(f"Affected packages: {[str(p.relative_to(self.repo_path)) if p != self.repo_path else '.' for p in affected_packages]}")
-        logger.info(f"Found {len(test_files)} changed test files ({len(new_test_files)} new)")
+        logger.info(
+            f"Affected packages: {[str(p.relative_to(self.repo_path)) if p != self.repo_path else '.' for p in affected_packages]}"
+        )
+        logger.info(
+            f"Found {len(test_files)} changed test files ({len(new_test_files)} new)"
+        )
 
         all_tests_base: Dict[str, str] = {}
         all_tests_before: Dict[str, str] = {}
@@ -365,7 +389,11 @@ class F2PP2PAnalyzer:
         packages_no_runner = []
 
         for pkg_path in affected_packages:
-            pkg_name = str(pkg_path.relative_to(self.repo_path)) if pkg_path != self.repo_path else "."
+            pkg_name = (
+                str(pkg_path.relative_to(self.repo_path))
+                if pkg_path != self.repo_path
+                else "."
+            )
             logger.info(f"Testing package: {pkg_name}")
 
             runner = self._get_runner_for_package(pkg_path)
@@ -376,8 +404,12 @@ class F2PP2PAnalyzer:
 
             runtime_ok, runtime_msg = runner.check_runtime()
             if not runtime_ok:
-                install_hint = INSTALL_INSTRUCTIONS.get(runner.name, f"Please install {runner.language} runtime")
-                logger.warning(f"  ⚠️  {runner.name} runtime not available. {install_hint}")
+                install_hint = INSTALL_INSTRUCTIONS.get(
+                    runner.name, f"Please install {runner.language} runtime"
+                )
+                logger.warning(
+                    f"  ⚠️  {runner.name} runtime not available. {install_hint}"
+                )
                 errors.append(f"{pkg_name}: Runtime not available - {runtime_msg}")
                 continue
 
@@ -392,7 +424,11 @@ class F2PP2PAnalyzer:
             # Record runner used (first package wins; typically there's only one)
             if result.runner_name is None:
                 result.runner_name = runner.name
-            pkg_test_files = [f for f in test_files if f.startswith(pkg_name + "/") or pkg_path == self.repo_path]
+            pkg_test_files = [
+                f
+                for f in test_files
+                if f.startswith(pkg_name + "/") or pkg_path == self.repo_path
+            ]
             prefix = f"[{pkg_name}] " if pkg_path != self.repo_path else ""
 
             # Run 1: tests_base (pristine base)
@@ -416,17 +452,28 @@ class F2PP2PAnalyzer:
                 all_tests_base[prefix + t] = "FAILED"
             for t in base_result.skipped:
                 all_tests_base[prefix + t] = "SKIPPED"
-            if base_result.exit_code is not None and base_result.exit_code != 0 and not base_result.passed and not base_result.failed:
+            if (
+                base_result.exit_code is not None
+                and base_result.exit_code != 0
+                and not base_result.passed
+                and not base_result.failed
+            ):
                 result.tests_base = base_result
-                result.error = f"{pkg_name} base: tests exited with code {base_result.exit_code}"
+                result.error = (
+                    f"{pkg_name} base: tests exited with code {base_result.exit_code}"
+                )
                 result.error_code = "TEST_EXIT_NONZERO"
                 return result
 
             # Run 2: tests_before (base + test files from head)
-            logger.info(f"  [2/3] Applying test patch from head to base")
+            logger.info("  [2/3] Applying test patch from head to base")
             before_result = self._run_at_commit(
-                base_sha, "before", runner, pkg_path,
-                apply_test_files=pkg_test_files, head_sha=head_sha
+                base_sha,
+                "before",
+                runner,
+                pkg_path,
+                apply_test_files=pkg_test_files,
+                head_sha=head_sha,
             )
             if before_result.error and "checkout" in before_result.error.lower():
                 errors.append(f"{pkg_name} before: {before_result.error}")
@@ -447,7 +494,12 @@ class F2PP2PAnalyzer:
                 all_tests_before[prefix + t] = "FAILED"
             for t in before_result.skipped:
                 all_tests_before[prefix + t] = "SKIPPED"
-            if before_result.exit_code is not None and before_result.exit_code != 0 and not before_result.passed and not before_result.failed:
+            if (
+                before_result.exit_code is not None
+                and before_result.exit_code != 0
+                and not before_result.passed
+                and not before_result.failed
+            ):
                 result.tests_base = base_result
                 result.tests_before = before_result
                 result.error = f"{pkg_name} before: tests exited with code {before_result.exit_code}"
@@ -455,9 +507,13 @@ class F2PP2PAnalyzer:
                 return result
 
             # Run 3: tests_after (full head commit)
-            after_use_apply = os.environ.get("REPO_EVAL_AFTER_USE_GIT_APPLY", "1").strip() in ("1", "true", "True")
+            after_use_apply = os.environ.get(
+                "REPO_EVAL_AFTER_USE_GIT_APPLY", "1"
+            ).strip() in ("1", "true", "True")
             if after_use_apply:
-                logger.info("  [3/3] Applying full patch from head to base for after stage")
+                logger.info(
+                    "  [3/3] Applying full patch from head to base for after stage"
+                )
                 after_result = self._run_at_commit(
                     base_sha,
                     "after",
@@ -490,11 +546,17 @@ class F2PP2PAnalyzer:
                 all_tests_after[prefix + t] = "FAILED"
             for t in after_result.skipped:
                 all_tests_after[prefix + t] = "SKIPPED"
-            if after_result.exit_code is not None and after_result.exit_code != 0 and single_pr_mode:
+            if (
+                after_result.exit_code is not None
+                and after_result.exit_code != 0
+                and single_pr_mode
+            ):
                 result.tests_base = base_result
                 result.tests_before = before_result
                 result.tests_after = after_result
-                result.error = f"{pkg_name} after: tests exited with code {after_result.exit_code}"
+                result.error = (
+                    f"{pkg_name} after: tests exited with code {after_result.exit_code}"
+                )
                 result.error_code = "TEST_EXIT_NONZERO"
                 return result
 
@@ -512,7 +574,9 @@ class F2PP2PAnalyzer:
                 result.error = "; ".join(errors)
                 result.error_code = "BUILD_FAILED"
             else:
-                result.error = f"No test runner detected. Supported languages: {supported}"
+                result.error = (
+                    f"No test runner detected. Supported languages: {supported}"
+                )
                 result.error_code = "NO_TEST_RUNNER"
             return result
 
@@ -539,17 +603,18 @@ class F2PP2PAnalyzer:
 
         # Preserve stage-level exit codes/errors (otherwise stage summaries can look "healthy"
         # even when most suites fail to load and produce 0 assertions).
-        for stage, tr in [("base", result.tests_base), ("before", result.tests_before), ("after", result.tests_after)]:
+        for stage, tr in [
+            ("base", result.tests_base),
+            ("before", result.tests_before),
+            ("after", result.tests_after),
+        ]:
             ecs = stage_exit_codes.get(stage) or []
             tr.exit_code = max(ecs) if ecs else None
             errs = stage_errors.get(stage) or []
             tr.error = errs[0] if errs else None
 
         report = generate_test_report(
-            all_tests_base,
-            all_tests_before,
-            all_tests_after,
-            has_new_test_file
+            all_tests_base, all_tests_before, all_tests_after, has_new_test_file
         )
 
         result.f2p_tests = sorted(report["FAIL_TO_PASS"])
@@ -563,7 +628,11 @@ class F2PP2PAnalyzer:
         # This helps diagnose cases where new tests only exist at AFTER or fail to load at BEFORE.
         before_all = set(all_tests_before.keys())
         f2p_not_collected = [t for t in result.f2p_tests if t not in before_all]
-        f2p_failed = [t for t in result.f2p_tests if (t in before_all and all_tests_before.get(t) in FAILED_STATUSES)]
+        f2p_failed = [
+            t
+            for t in result.f2p_tests
+            if (t in before_all and all_tests_before.get(t) in FAILED_STATUSES)
+        ]
         if f2p_not_collected or f2p_failed:
             logger.info(
                 f"  F2P breakdown: {len(f2p_failed)} failed in before, {len(f2p_not_collected)} not collected in before"
@@ -611,27 +680,37 @@ class F2PP2PAnalyzer:
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
             if result.returncode != 0:
                 return []
-            return [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
+            return [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
         except Exception as e:
             logger.debug(f"Error getting changed files: {e}")
             return []
 
-    def _get_new_files(self, base_sha: str, head_sha: str, test_files: List[str]) -> List[str]:
+    def _get_new_files(
+        self, base_sha: str, head_sha: str, test_files: List[str]
+    ) -> List[str]:
         new_files = []
         try:
             result = subprocess.run(
-                ["git", "diff", "--name-only", "--diff-filter=A", f"{base_sha}...{head_sha}"],
+                [
+                    "git",
+                    "diff",
+                    "--name-only",
+                    "--diff-filter=A",
+                    f"{base_sha}...{head_sha}",
+                ],
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
             if result.returncode == 0:
-                added = set(f.strip() for f in result.stdout.strip().split('\n') if f.strip())
+                added = set(
+                    f.strip() for f in result.stdout.strip().split("\n") if f.strip()
+                )
                 new_files = [f for f in test_files if f in added]
         except Exception as e:
             logger.debug(f"Error getting new files: {e}")
@@ -644,7 +723,7 @@ class F2PP2PAnalyzer:
                 if is_test_file_path(f, self.language_config):
                     test_files.append(f)
             else:
-                if any(p in f.lower() for p in ['test', 'spec', '__tests__']):
+                if any(p in f.lower() for p in ["test", "spec", "__tests__"]):
                     test_files.append(f)
         return test_files
 
@@ -656,7 +735,13 @@ class F2PP2PAnalyzer:
         deleted: Set[str] = set()
         try:
             result = subprocess.run(
-                ["git", "diff", "--name-only", "--diff-filter=D", f"{base_sha}...{head_sha}"],
+                [
+                    "git",
+                    "diff",
+                    "--name-only",
+                    "--diff-filter=D",
+                    f"{base_sha}...{head_sha}",
+                ],
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
@@ -665,12 +750,16 @@ class F2PP2PAnalyzer:
                 errors="replace",
             )
             if result.returncode == 0:
-                deleted = {f.strip() for f in (result.stdout or "").splitlines() if f.strip()}
+                deleted = {
+                    f.strip() for f in (result.stdout or "").splitlines() if f.strip()
+                }
         except Exception as e:
             logger.debug(f"Error getting deleted files: {e}")
         return deleted
 
-    def _generate_test_patch(self, base_sha: str, head_sha: str, test_files: List[str]) -> str:
+    def _generate_test_patch(
+        self, base_sha: str, head_sha: str, test_files: List[str]
+    ) -> str:
         """Generate a patch for selected test file paths.
 
         We include `--binary` so `git apply` has full metadata for binary diffs.
@@ -681,7 +770,14 @@ class F2PP2PAnalyzer:
 
         try:
             result = subprocess.run(
-                ["git", "diff", "--binary", f"{base_sha}..{head_sha}", "--", *test_files],
+                [
+                    "git",
+                    "diff",
+                    "--binary",
+                    f"{base_sha}..{head_sha}",
+                    "--",
+                    *test_files,
+                ],
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
@@ -696,14 +792,18 @@ class F2PP2PAnalyzer:
         except Exception as e:
             raise RuntimeError(f"Failed to generate test patch: {e}")
 
-    def _apply_test_patch_from_head(self, test_files: List[str], base_sha: str, head_sha: str):
+    def _apply_test_patch_from_head(
+        self, test_files: List[str], base_sha: str, head_sha: str
+    ):
         """Apply a test patch onto the current working tree (expected to be at base_sha)."""
         if not test_files:
             return
 
         patch = self._generate_test_patch(base_sha, head_sha, test_files)
         if not patch.strip():
-            logger.info("    No test patch to apply (diff for selected test files is empty)")
+            logger.info(
+                "    No test patch to apply (diff for selected test files is empty)"
+            )
             return
 
         result = subprocess.run(
@@ -720,7 +820,9 @@ class F2PP2PAnalyzer:
             stderr = (result.stderr or "").strip()
             stdout = (result.stdout or "").strip()
             details = "\n".join([s for s in [stdout, stderr] if s])
-            raise RuntimeError(details or f"git apply failed (exit {result.returncode})")
+            raise RuntimeError(
+                details or f"git apply failed (exit {result.returncode})"
+            )
 
         logger.info(f"    Applied test patch for {len(test_files)} test file path(s)")
 
@@ -764,11 +866,15 @@ class F2PP2PAnalyzer:
             stderr = (result.stderr or "").strip()
             stdout = (result.stdout or "").strip()
             details = "\n".join([s for s in [stdout, stderr] if s])
-            raise RuntimeError(details or f"git apply failed (exit {result.returncode})")
+            raise RuntimeError(
+                details or f"git apply failed (exit {result.returncode})"
+            )
 
         logger.info("    Applied full patch from head")
 
-    def _apply_test_files_from_head(self, test_files: List[str], head_sha: str, base_sha: Optional[str] = None):
+    def _apply_test_files_from_head(
+        self, test_files: List[str], head_sha: str, base_sha: Optional[str] = None
+    ):
         if not test_files:
             return
 
@@ -781,10 +887,14 @@ class F2PP2PAnalyzer:
                 files_to_apply = [f for f in files_to_apply if f not in deleted_files]
                 skipped = before - len(files_to_apply)
                 if skipped:
-                    logger.debug(f"Skipping {skipped} deleted test file(s) when applying from head")
+                    logger.debug(
+                        f"Skipping {skipped} deleted test file(s) when applying from head"
+                    )
 
         if not files_to_apply:
-            logger.info("    No test files to apply (all candidate test files were deleted)")
+            logger.info(
+                "    No test files to apply (all candidate test files were deleted)"
+            )
             return
 
         applied = 0
@@ -809,10 +919,14 @@ class F2PP2PAnalyzer:
                     failed.append(f)
                     err = (result.stderr or "").strip().splitlines()
                     msg = err[-1] if err else "no error output"
-                    logger.warning(f"    Failed to apply test file from head: {f} (exit {result.returncode}): {msg}")
+                    logger.warning(
+                        f"    Failed to apply test file from head: {f} (exit {result.returncode}): {msg}"
+                    )
 
             if applied:
-                logger.info(f"    Applied {applied}/{len(files_to_apply)} test files from head")
+                logger.info(
+                    f"    Applied {applied}/{len(files_to_apply)} test files from head"
+                )
             if failed and applied == 0:
                 logger.warning(
                     "    No test files could be applied from head; BEFORE stage may match BASE stage (F2P/P2P may be unreliable)"
@@ -837,7 +951,9 @@ class F2PP2PAnalyzer:
 
         if apply_full_patch:
             if not head_sha:
-                return TestResult(error="Patch Apply Failed:\nMissing head_sha for full patch apply")
+                return TestResult(
+                    error="Patch Apply Failed:\nMissing head_sha for full patch apply"
+                )
             try:
                 self._apply_full_patch_from_head(base_sha=sha, head_sha=head_sha)
             except Exception as e:
@@ -846,18 +962,26 @@ class F2PP2PAnalyzer:
         elif apply_test_files and head_sha:
             # BEFORE semantics: checkout base, then apply a patch of test changes.
             # Allow opting out for troubleshooting/legacy behavior.
-            use_git_apply = os.environ.get("REPO_EVAL_BEFORE_USE_GIT_APPLY", "1").strip() not in ("0", "false", "False")
+            use_git_apply = os.environ.get(
+                "REPO_EVAL_BEFORE_USE_GIT_APPLY", "1"
+            ).strip() not in ("0", "false", "False")
             if use_git_apply:
                 try:
-                    self._apply_test_patch_from_head(apply_test_files, base_sha=sha, head_sha=head_sha)
+                    self._apply_test_patch_from_head(
+                        apply_test_files, base_sha=sha, head_sha=head_sha
+                    )
                 except Exception as e:
                     return TestResult(error=f"Patch Apply Failed:\n{e}")
             else:
-                self._apply_test_files_from_head(apply_test_files, head_sha, base_sha=sha)
+                self._apply_test_files_from_head(
+                    apply_test_files, head_sha, base_sha=sha
+                )
 
         logger.info(f"Installing dependencies at {label} ({sha[:8]}) in {pkg_path}...")
         try:
-            success, error_msg = runner.install_deps(pkg_path, timeout=self.install_timeout)
+            success, error_msg = runner.install_deps(
+                pkg_path, timeout=self.install_timeout
+            )
             if not success:
                 logger.error(f"Install failed: {error_msg}")
                 return TestResult(error=f"Install failed: {error_msg}")
@@ -895,7 +1019,7 @@ class F2PP2PAnalyzer:
             cwd=self.repo_path,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         if result.returncode != 0:
@@ -904,21 +1028,18 @@ class F2PP2PAnalyzer:
                 ["git", "fetch", "origin", sha],
                 cwd=self.repo_path,
                 capture_output=True,
-                timeout=120
+                timeout=120,
             )
 
         subprocess.run(
             ["git", "reset", "--hard"],
             cwd=self.repo_path,
             capture_output=True,
-            timeout=30
+            timeout=30,
         )
 
         subprocess.run(
-            ["git", "clean", "-fd"],
-            cwd=self.repo_path,
-            capture_output=True,
-            timeout=30
+            ["git", "clean", "-fd"], cwd=self.repo_path, capture_output=True, timeout=30
         )
 
         result = subprocess.run(
@@ -926,7 +1047,7 @@ class F2PP2PAnalyzer:
             cwd=self.repo_path,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
         if result.returncode != 0:
@@ -956,7 +1077,7 @@ def analyze_f2p_p2p(
 
 
 def preflight_check(repo_path: str, language_hint: Optional[str] = None) -> dict:
-    from .registry import get_all_detected_runners, LANGUAGE_RUNNERS
+    from .registry import LANGUAGE_RUNNERS, get_all_detected_runners
 
     repo_path = Path(repo_path)
     blockers = []
@@ -966,7 +1087,12 @@ def preflight_check(repo_path: str, language_hint: Optional[str] = None) -> dict
     if not repo_path.exists():
         return {
             "can_run": False,
-            "blockers": [{"code": "REPO_NOT_FOUND", "message": f"Repository not found: {repo_path}"}],
+            "blockers": [
+                {
+                    "code": "REPO_NOT_FOUND",
+                    "message": f"Repository not found: {repo_path}",
+                }
+            ],
             "warnings": [],
             "detected": {},
         }
@@ -982,16 +1108,22 @@ def preflight_check(repo_path: str, language_hint: Optional[str] = None) -> dict
 
     if normalized_hint and normalized_hint in LANGUAGE_RUNNERS:
         allowed = tuple(LANGUAGE_RUNNERS[normalized_hint])
-        filtered = [(runner, score) for runner, score in runners if isinstance(runner, allowed)]
+        filtered = [
+            (runner, score) for runner, score in runners if isinstance(runner, allowed)
+        ]
         runners = filtered
         if not filtered:
-            warnings.append({
-                "code": "LANGUAGE_HINT_NO_MATCH",
-                "message": f"No runners matched language hint: {normalized_hint}",
-            })
+            warnings.append(
+                {
+                    "code": "LANGUAGE_HINT_NO_MATCH",
+                    "message": f"No runners matched language hint: {normalized_hint}",
+                }
+            )
 
     if not runners:
-        blockers.append({"code": "NO_TEST_FRAMEWORK", "message": "No test framework detected"})
+        blockers.append(
+            {"code": "NO_TEST_FRAMEWORK", "message": "No test framework detected"}
+        )
     else:
         best_runner, best_score = runners[0]
         detected["framework"] = best_runner.name
@@ -1000,23 +1132,49 @@ def preflight_check(repo_path: str, language_hint: Optional[str] = None) -> dict
 
         runtime_ok, runtime_msg = best_runner.check_runtime()
         if not runtime_ok:
-            install_hint = INSTALL_INSTRUCTIONS.get(best_runner.name, f"Please install {best_runner.language} runtime")
-            blockers.append({
-                "code": "MISSING_RUNTIME",
-                "message": f"{best_runner.language} runtime not found: {runtime_msg}",
-                "install_hint": install_hint
-            })
+            install_hint = INSTALL_INSTRUCTIONS.get(
+                best_runner.name, f"Please install {best_runner.language} runtime"
+            )
+            blockers.append(
+                {
+                    "code": "MISSING_RUNTIME",
+                    "message": f"{best_runner.language} runtime not found: {runtime_msg}",
+                    "install_hint": install_hint,
+                }
+            )
         else:
             detected["runtime"] = runtime_msg
 
-    lock_files = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Pipfile.lock", "poetry.lock", "Cargo.lock", "Gemfile.lock"]
+    lock_files = [
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "Pipfile.lock",
+        "poetry.lock",
+        "Cargo.lock",
+        "Gemfile.lock",
+    ]
     if not any((repo_path / lf).exists() for lf in lock_files):
         warnings.append({"code": "NO_LOCK_FILE", "message": "No lock file found"})
 
-    if (repo_path / "docker-compose.yml").exists() or (repo_path / "docker-compose.yaml").exists():
-        warnings.append({"code": "DOCKER_REQUIRED", "message": "docker-compose.yml found"})
+    if (repo_path / "docker-compose.yml").exists() or (
+        repo_path / "docker-compose.yaml"
+    ).exists():
+        warnings.append(
+            {"code": "DOCKER_REQUIRED", "message": "docker-compose.yml found"}
+        )
 
     if (repo_path / ".env.example").exists() or (repo_path / ".env.sample").exists():
-        warnings.append({"code": "ENV_VARS_NEEDED", "message": "Environment variables may be required"})
+        warnings.append(
+            {
+                "code": "ENV_VARS_NEEDED",
+                "message": "Environment variables may be required",
+            }
+        )
 
-    return {"can_run": len(blockers) == 0, "blockers": blockers, "warnings": warnings, "detected": detected}
+    return {
+        "can_run": len(blockers) == 0,
+        "blockers": blockers,
+        "warnings": warnings,
+        "detected": detected,
+    }

@@ -6,7 +6,7 @@ import json
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from .base import TestResult, OutputParseError
 
 
@@ -47,38 +47,35 @@ def parse_junit_xml(xml_path: Path) -> TestResult:
         all_testcases = root.findall(".//testcase")
 
     for testcase in all_testcases:
-            classname = testcase.get("classname", "")
-            name = testcase.get("name", "")
-            time_str = testcase.get("time", "0")
+        classname = testcase.get("classname", "")
+        name = testcase.get("name", "")
+        time_str = testcase.get("time", "0")
 
-            # Build full test name
-            if classname:
-                full_name = f"{classname}::{name}"
-            else:
-                full_name = name
+        # Build full test name
+        if classname:
+            full_name = f"{classname}::{name}"
+        else:
+            full_name = name
 
-            try:
-                total_time += float(time_str)
-            except ValueError:
-                pass
+        try:
+            total_time += float(time_str)
+        except ValueError:
+            pass
 
-            # Check for failure/error/skipped
-            failure = testcase.find("failure")
-            error = testcase.find("error")
-            skip = testcase.find("skipped")
+        # Check for failure/error/skipped
+        failure = testcase.find("failure")
+        error = testcase.find("error")
+        skip = testcase.find("skipped")
 
-            if failure is not None or error is not None:
-                failed.append(full_name)
-            elif skip is not None:
-                skipped.append(full_name)
-            else:
-                passed.append(full_name)
+        if failure is not None or error is not None:
+            failed.append(full_name)
+        elif skip is not None:
+            skipped.append(full_name)
+        else:
+            passed.append(full_name)
 
     return TestResult(
-        passed=passed,
-        failed=failed,
-        skipped=skipped,
-        duration_seconds=total_time
+        passed=passed, failed=failed, skipped=skipped, duration_seconds=total_time
     )
 
 
@@ -105,7 +102,7 @@ def parse_jest_json(json_path: Path, project_root: Optional[Path] = None) -> Tes
         raise OutputParseError(f"Jest JSON file not found: {json_path}")
 
     try:
-        with open(json_path, 'r') as f:
+        with open(json_path, "r") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         raise OutputParseError(f"Failed to parse Jest JSON: {e}")
@@ -121,7 +118,9 @@ def parse_jest_json(json_path: Path, project_root: Optional[Path] = None) -> Tes
             if not full_name:
                 ancestors = assertion.get("ancestorTitles", [])
                 test_title = assertion.get("title", "")
-                full_name = " ".join(ancestors + [test_title]) if ancestors else test_title
+                full_name = (
+                    " ".join(ancestors + [test_title]) if ancestors else test_title
+                )
             status = assertion.get("status", "")
 
             if status == "passed":
@@ -140,10 +139,12 @@ def parse_jest_json(json_path: Path, project_root: Optional[Path] = None) -> Tes
                 try:
                     pr = str(project_root).rstrip("/") + "/"
                     if raw_name.startswith(pr):
-                        name = raw_name[len(pr):]
+                        name = raw_name[len(pr) :]
                 except Exception:
                     name = raw_name
-            failed.append(f"{name}::(suite failed to run)" if name else "(suite failed to run)")
+            failed.append(
+                f"{name}::(suite failed to run)" if name else "(suite failed to run)"
+            )
 
     # Get duration if available
     duration = 0.0
@@ -151,10 +152,7 @@ def parse_jest_json(json_path: Path, project_root: Optional[Path] = None) -> Tes
         duration = (data["endTime"] - data["startTime"]) / 1000.0
 
     return TestResult(
-        passed=passed,
-        failed=failed,
-        skipped=skipped,
-        duration_seconds=duration
+        passed=passed, failed=failed, skipped=skipped, duration_seconds=duration
     )
 
 
@@ -169,7 +167,9 @@ def parse_jest_verbose_output(output: str) -> TestResult:
     failed: List[str] = []
     skipped: List[str] = []
 
-    pattern = re.compile(r"^\\s*(✓|✕|○)\\s(.+?)(?:\\s+\\(\\d+\\s*m?s\\))?\\s*$", re.MULTILINE)
+    pattern = re.compile(
+        r"^\\s*(✓|✕|○)\\s(.+?)(?:\\s+\\(\\d+\\s*m?s\\))?\\s*$", re.MULTILINE
+    )
     for sym, name in pattern.findall(output or ""):
         if sym == "✓":
             passed.append(name)
@@ -196,7 +196,7 @@ def parse_go_test_json(output: str) -> TestResult:
     skipped = []
     total_time = 0.0
 
-    for line in output.strip().split('\n'):
+    for line in output.strip().split("\n"):
         if not line.strip():
             continue
 
@@ -227,10 +227,7 @@ def parse_go_test_json(output: str) -> TestResult:
                 skipped.append(full_name)
 
     return TestResult(
-        passed=passed,
-        failed=failed,
-        skipped=skipped,
-        duration_seconds=total_time
+        passed=passed, failed=failed, skipped=skipped, duration_seconds=total_time
     )
 
 
@@ -248,9 +245,9 @@ def parse_pytest_output(output: str) -> TestResult:
     skipped = []
 
     # Pattern for pytest verbose output
-    pattern = r'^([\w/.-]+::\w+(?:\[.*?\])?)\s+(PASSED|FAILED|SKIPPED|ERROR)'
+    pattern = r"^([\w/.-]+::\w+(?:\[.*?\])?)\s+(PASSED|FAILED|SKIPPED|ERROR)"
 
-    for line in output.split('\n'):
+    for line in output.split("\n"):
         match = re.match(pattern, line.strip())
         if match:
             test_name = match.group(1)
@@ -265,7 +262,7 @@ def parse_pytest_output(output: str) -> TestResult:
 
     # Try to extract duration from summary line
     duration = 0.0
-    duration_match = re.search(r'in ([\d.]+)s', output)
+    duration_match = re.search(r"in ([\d.]+)s", output)
     if duration_match:
         try:
             duration = float(duration_match.group(1))
@@ -277,7 +274,7 @@ def parse_pytest_output(output: str) -> TestResult:
         failed=failed,
         skipped=skipped,
         duration_seconds=duration,
-        raw_output=output
+        raw_output=output,
     )
 
 
@@ -295,9 +292,9 @@ def parse_cargo_test_output(output: str) -> TestResult:
     skipped = []
 
     # Pattern for cargo test output
-    pattern = r'^test\s+([\w:]+)\s+\.\.\.\s+(ok|FAILED|ignored)'
+    pattern = r"^test\s+([\w:]+)\s+\.\.\.\s+(ok|FAILED|ignored)"
 
-    for line in output.split('\n'):
+    for line in output.split("\n"):
         match = re.match(pattern, line.strip())
         if match:
             test_name = match.group(1)
@@ -312,7 +309,7 @@ def parse_cargo_test_output(output: str) -> TestResult:
 
     # Try to extract duration
     duration = 0.0
-    duration_match = re.search(r'finished in ([\d.]+)s', output)
+    duration_match = re.search(r"finished in ([\d.]+)s", output)
     if duration_match:
         try:
             duration = float(duration_match.group(1))
@@ -324,7 +321,7 @@ def parse_cargo_test_output(output: str) -> TestResult:
         failed=failed,
         skipped=skipped,
         duration_seconds=duration,
-        raw_output=output
+        raw_output=output,
     )
 
 
@@ -345,7 +342,7 @@ def parse_rspec_json(json_path: Path) -> TestResult:
         raise OutputParseError(f"RSpec JSON file not found: {json_path}")
 
     try:
-        with open(json_path, 'r') as f:
+        with open(json_path, "r") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         raise OutputParseError(f"Failed to parse RSpec JSON: {e}")
@@ -368,10 +365,7 @@ def parse_rspec_json(json_path: Path) -> TestResult:
     duration = data.get("summary", {}).get("duration", 0.0)
 
     return TestResult(
-        passed=passed,
-        failed=failed,
-        skipped=skipped,
-        duration_seconds=duration
+        passed=passed, failed=failed, skipped=skipped, duration_seconds=duration
     )
 
 
@@ -420,10 +414,7 @@ def parse_dotnet_trx(trx_path: Path) -> TestResult:
             skipped.append(test_name)
 
     return TestResult(
-        passed=passed,
-        failed=failed,
-        skipped=skipped,
-        duration_seconds=total_time
+        passed=passed, failed=failed, skipped=skipped, duration_seconds=total_time
     )
 
 
@@ -452,7 +443,7 @@ def parse_mocha_json(json_path: Path) -> TestResult:
         raise OutputParseError(f"Mocha JSON file not found: {json_path}")
 
     try:
-        with open(json_path, 'r') as f:
+        with open(json_path, "r") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         raise OutputParseError(f"Failed to parse Mocha JSON: {e}")
@@ -464,8 +455,5 @@ def parse_mocha_json(json_path: Path) -> TestResult:
     duration = data.get("stats", {}).get("duration", 0) / 1000.0  # ms to seconds
 
     return TestResult(
-        passed=passed,
-        failed=failed,
-        skipped=skipped,
-        duration_seconds=duration
+        passed=passed, failed=failed, skipped=skipped, duration_seconds=duration
     )

@@ -9,10 +9,15 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .base import (
-    TestRunner, TestResult, RuntimeNotFoundError,
-    DependencyInstallError, TestTimeoutError
+    TestResult,
+    TestRunner,
+    TestTimeoutError,
 )
-from .parsers import parse_jest_json, parse_jest_verbose_output, parse_vitest_json, parse_mocha_json
+from .parsers import (
+    parse_jest_json,
+    parse_jest_verbose_output,
+    parse_mocha_json,
+)
 
 
 def _load_test_env(project_root: Path) -> dict:
@@ -88,7 +93,7 @@ def get_package_json(repo_path: Path) -> Optional[dict]:
     if not pkg_path.exists():
         return None
     try:
-        with open(pkg_path, 'r') as f:
+        with open(pkg_path, "r") as f:
             return json.load(f)
     except Exception:
         return None
@@ -103,7 +108,7 @@ def get_required_node_version(repo_path: Path) -> Optional[str]:
     if nvmrc.exists():
         try:
             content = nvmrc.read_text().strip()
-            match = re.search(r'(\d+)', content)
+            match = re.search(r"(\d+)", content)
             if match:
                 return match.group(1)
         except Exception:
@@ -114,7 +119,7 @@ def get_required_node_version(repo_path: Path) -> Optional[str]:
     if node_version.exists():
         try:
             content = node_version.read_text().strip()
-            match = re.search(r'(\d+)', content)
+            match = re.search(r"(\d+)", content)
             if match:
                 return match.group(1)
         except Exception:
@@ -126,7 +131,7 @@ def get_required_node_version(repo_path: Path) -> Optional[str]:
         engines = pkg.get("engines", {})
         node_req = engines.get("node", "")
         if node_req:
-            match = re.search(r'(\d+)', node_req)
+            match = re.search(r"(\d+)", node_req)
             if match:
                 return match.group(1)
 
@@ -141,10 +146,26 @@ def find_js_project_root(repo_path: Path) -> Path:
             deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             scripts = pkg.get("scripts", {})
             test_script = scripts.get("test", "")
-            if any(d in deps for d in ["jest", "vitest", "mocha", "@testing-library/react"]) and test_script != "":
+            if (
+                any(
+                    d in deps
+                    for d in ["jest", "vitest", "mocha", "@testing-library/react"]
+                )
+                and test_script != ""
+            ):
                 return repo_path
 
-    monorepo_dirs = ["web", "app", "apps", "packages", "frontend", "client", "src", "backend", "api"]
+    monorepo_dirs = [
+        "web",
+        "app",
+        "apps",
+        "packages",
+        "frontend",
+        "client",
+        "src",
+        "backend",
+        "api",
+    ]
     for subdir in monorepo_dirs:
         sub_path = repo_path / subdir
         if sub_path.exists() and (sub_path / "package.json").exists():
@@ -179,8 +200,11 @@ class JestRunner(TestRunner):
         self._is_cra = False
 
         jest_configs = [
-            "jest.config.js", "jest.config.ts", "jest.config.mjs",
-            "jest.config.cjs", "jest.config.json"
+            "jest.config.js",
+            "jest.config.ts",
+            "jest.config.mjs",
+            "jest.config.cjs",
+            "jest.config.json",
         ]
         for config in jest_configs:
             if (project_root / config).exists():
@@ -190,10 +214,7 @@ class JestRunner(TestRunner):
 
         pkg = get_package_json(project_root)
         if pkg:
-            all_deps = {
-                **pkg.get("dependencies", {}),
-                **pkg.get("devDependencies", {})
-            }
+            all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             if "jest" in all_deps or "@testing-library/jest-dom" in all_deps:
                 score += 30
 
@@ -233,15 +254,20 @@ class JestRunner(TestRunner):
     def get_current_version(self) -> Optional[str]:
         """Return current Node.js major version."""
         import re
+
         available, version = self.check_runtime()
         if not available:
             return None
-        match = re.search(r'v?(\d+)', version)
+        match = re.search(r"v?(\d+)", version)
         return match.group(1) if match else None
 
     def get_required_version(self, repo_path: Path) -> Optional[str]:
         """Extract required Node.js version from repo config."""
-        project_root = self._get_project_root(repo_path) if hasattr(self, '_project_root') else repo_path
+        project_root = (
+            self._get_project_root(repo_path)
+            if hasattr(self, "_project_root")
+            else repo_path
+        )
         return get_required_node_version(project_root)
 
     def _versions_compatible(self, required: str, current: str) -> bool:
@@ -272,7 +298,11 @@ class JestRunner(TestRunner):
             return pm, ["bun", "install"], ["bun"]
         else:
             # Use npm exec instead of npx to ensure project-local modules are resolved
-            return pm, ["npm", "install", "--legacy-peer-deps", "--ignore-scripts"], ["npm", "exec", "--"]
+            return (
+                pm,
+                ["npm", "install", "--legacy-peer-deps", "--ignore-scripts"],
+                ["npm", "exec", "--"],
+            )
 
     def install_deps(self, repo_path: Path, timeout: int = 300) -> Tuple[bool, str]:
         """Install JavaScript dependencies."""
@@ -303,11 +333,21 @@ class JestRunner(TestRunner):
 
     def run_tests(self, repo_path: Path, timeout: int = 600) -> TestResult:
         """Run Jest and return results."""
-        project_root = repo_path if (repo_path / "package.json").exists() else self._get_project_root(repo_path)
+        project_root = (
+            repo_path
+            if (repo_path / "package.json").exists()
+            else self._get_project_root(repo_path)
+        )
         self._project_root = project_root
 
         self._jest_config_file = None
-        for config in ["jest.config.js", "jest.config.ts", "jest.config.mjs", "jest.config.cjs", "jest.config.json"]:
+        for config in [
+            "jest.config.js",
+            "jest.config.ts",
+            "jest.config.mjs",
+            "jest.config.cjs",
+            "jest.config.json",
+        ]:
             if (project_root / config).exists():
                 self._jest_config_file = config
                 break
@@ -317,7 +357,9 @@ class JestRunner(TestRunner):
         if pkg:
             all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             test_script = pkg.get("scripts", {}).get("test", "")
-            self._is_cra = "react-scripts" in all_deps and "react-scripts test" in test_script
+            self._is_cra = (
+                "react-scripts" in all_deps and "react-scripts test" in test_script
+            )
 
         pm, _, run_cmd = self._get_pm_commands(repo_path)
 
@@ -325,7 +367,9 @@ class JestRunner(TestRunner):
         # instead of forcing Jest JSON flags.
         #
         # Enable with: REPO_EVAL_JS_USE_TEST_SCRIPT=1
-        use_test_script = os.getenv("REPO_EVAL_JS_USE_TEST_SCRIPT", "").strip().lower() in ("1", "true", "yes", "y")
+        use_test_script = os.getenv(
+            "REPO_EVAL_JS_USE_TEST_SCRIPT", ""
+        ).strip().lower() in ("1", "true", "yes", "y")
 
         # Env defaults and optional config:
         # - Always inject CI=true (safe default)
@@ -352,7 +396,9 @@ class JestRunner(TestRunner):
             else:
                 cmd = ["npm", "test"]
 
-            returncode, stdout, stderr = self._run_command(cmd, project_root, timeout=timeout, env=test_env)
+            returncode, stdout, stderr = self._run_command(
+                cmd, project_root, timeout=timeout, env=test_env
+            )
             output = stdout + "\n" + stderr
 
             parsed = parse_jest_verbose_output(output)
@@ -361,31 +407,65 @@ class JestRunner(TestRunner):
                 return parsed
             # If verbose parsing yields nothing, fall through to JSON mode below.
 
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode='w') as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json_path = Path(f.name)
 
         try:
             if self._is_cra:
                 cmd = run_cmd + [
-                    "react-scripts", "test",
-                    "--json", f"--outputFile={json_path}",
-                    "--watchAll=false", "--passWithNoTests"
+                    "react-scripts",
+                    "test",
+                    "--json",
+                    f"--outputFile={json_path}",
+                    "--watchAll=false",
+                    "--passWithNoTests",
                 ]
             elif test_script and "jest" in test_script:
                 # Use npm/yarn/pnpm test to run project's configured jest
                 # This ensures project-local transformers (next/jest, ts-jest) are used
                 if pm == "yarn":
-                    cmd = ["yarn", "test", "--", "--json", f"--outputFile={json_path}", "--passWithNoTests", "--watchAll=false"]
+                    cmd = [
+                        "yarn",
+                        "test",
+                        "--",
+                        "--json",
+                        f"--outputFile={json_path}",
+                        "--passWithNoTests",
+                        "--watchAll=false",
+                    ]
                 elif pm == "pnpm":
-                    cmd = ["pnpm", "test", "--", "--json", f"--outputFile={json_path}", "--passWithNoTests", "--watchAll=false"]
+                    cmd = [
+                        "pnpm",
+                        "test",
+                        "--",
+                        "--json",
+                        f"--outputFile={json_path}",
+                        "--passWithNoTests",
+                        "--watchAll=false",
+                    ]
                 else:
-                    cmd = ["npm", "test", "--", "--json", f"--outputFile={json_path}", "--passWithNoTests", "--watchAll=false"]
+                    cmd = [
+                        "npm",
+                        "test",
+                        "--",
+                        "--json",
+                        f"--outputFile={json_path}",
+                        "--passWithNoTests",
+                        "--watchAll=false",
+                    ]
             else:
-                cmd = run_cmd + ["jest", "--json", f"--outputFile={json_path}", "--passWithNoTests"]
+                cmd = run_cmd + [
+                    "jest",
+                    "--json",
+                    f"--outputFile={json_path}",
+                    "--passWithNoTests",
+                ]
                 if self._has_config_conflict(project_root):
                     cmd.insert(-2, f"--config={self._jest_config_file}")
 
-            returncode, stdout, stderr = self._run_command(cmd, project_root, timeout=timeout, env=test_env)
+            returncode, stdout, stderr = self._run_command(
+                cmd, project_root, timeout=timeout, env=test_env
+            )
             output = stdout + "\n" + stderr
 
             if json_path.exists() and json_path.stat().st_size > 0:
@@ -412,7 +492,9 @@ class JestRunner(TestRunner):
 
             # Auto-fallback: if JSON mode couldn't produce parseable tests, try a Jest-typical
             # verbose run (helps repos whose test setup strips JSON output or prints only text).
-            auto_verbose_fallback = os.getenv("REPO_EVAL_JS_AUTO_VERBOSE_FALLBACK", "").strip().lower() not in ("0", "false", "no", "n")
+            auto_verbose_fallback = os.getenv(
+                "REPO_EVAL_JS_AUTO_VERBOSE_FALLBACK", ""
+            ).strip().lower() not in ("0", "false", "no", "n")
             if auto_verbose_fallback and (not use_test_script) and test_script:
                 if pm == "yarn":
                     cmd2 = ["yarn", "test", "--", "--runInBand", "--verbose"]
@@ -420,7 +502,9 @@ class JestRunner(TestRunner):
                     cmd2 = ["pnpm", "test", "--", "--runInBand", "--verbose"]
                 else:
                     cmd2 = ["npm", "test", "--", "--runInBand", "--verbose"]
-                rc2, out2, err2 = self._run_command(cmd2, project_root, timeout=timeout, env=test_env)
+                rc2, out2, err2 = self._run_command(
+                    cmd2, project_root, timeout=timeout, env=test_env
+                )
                 output2 = out2 + "\n" + err2
                 parsed2 = parse_jest_verbose_output(output2)
                 parsed2.exit_code = rc2
@@ -454,7 +538,9 @@ class JestRunner(TestRunner):
                 if not full_name:
                     ancestors = assertion.get("ancestorTitles", [])
                     test_title = assertion.get("title", "")
-                    full_name = " ".join(ancestors + [test_title]) if ancestors else test_title
+                    full_name = (
+                        " ".join(ancestors + [test_title]) if ancestors else test_title
+                    )
                 status = assertion.get("status", "")
 
                 if status == "passed":
@@ -472,16 +558,17 @@ class JestRunner(TestRunner):
                     if self._project_root and raw_name:
                         pr = str(self._project_root).rstrip("/") + "/"
                         if raw_name.startswith(pr):
-                            name = raw_name[len(pr):]
+                            name = raw_name[len(pr) :]
                 except Exception:
                     name = raw_name
-                failed.append(f"{name}::(suite failed to run)" if name else "(suite failed to run)")
+                failed.append(
+                    f"{name}::(suite failed to run)"
+                    if name
+                    else "(suite failed to run)"
+                )
 
         return TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            raw_output=output
+            passed=passed, failed=failed, skipped=skipped, raw_output=output
         )
 
 
@@ -499,8 +586,12 @@ class VitestRunner(TestRunner):
         self._project_root = project_root
 
         vitest_configs = [
-            "vitest.config.ts", "vitest.config.js", "vitest.config.mts",
-            "vitest.config.mjs", "vitest.config.cts", "vitest.config.cjs"
+            "vitest.config.ts",
+            "vitest.config.js",
+            "vitest.config.mts",
+            "vitest.config.mjs",
+            "vitest.config.cts",
+            "vitest.config.cjs",
         ]
         for config in vitest_configs:
             if (project_root / config).exists():
@@ -509,10 +600,7 @@ class VitestRunner(TestRunner):
 
         pkg = get_package_json(project_root)
         if pkg:
-            all_deps = {
-                **pkg.get("dependencies", {}),
-                **pkg.get("devDependencies", {})
-            }
+            all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             # if "vitest" in all_deps or "@vitejs/plugin-react" in all_deps:
             #     score += 40
 
@@ -547,10 +635,11 @@ class VitestRunner(TestRunner):
     def get_current_version(self) -> Optional[str]:
         """Return current Node.js major version."""
         import re
+
         available, version = self.check_runtime()
         if not available:
             return None
-        match = re.search(r'v?(\d+)', version)
+        match = re.search(r"v?(\d+)", version)
         return match.group(1) if match else None
 
     def get_required_version(self, repo_path: Path) -> Optional[str]:
@@ -608,7 +697,9 @@ class VitestRunner(TestRunner):
 
         try:
             cmd = run_cmd + ["vitest", "run", "--reporter=json"]
-            returncode, stdout, stderr = self._run_command(cmd, project_root, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, project_root, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to parse JSON from stdout
@@ -640,7 +731,9 @@ class VitestRunner(TestRunner):
                 if not full_name:
                     ancestors = assertion.get("ancestorTitles", [])
                     test_title = assertion.get("name") or assertion.get("title", "")
-                    full_name = " ".join(ancestors + [test_title]) if ancestors else test_title
+                    full_name = (
+                        " ".join(ancestors + [test_title]) if ancestors else test_title
+                    )
                 status = assertion.get("status", "")
 
                 if status == "passed":
@@ -651,10 +744,7 @@ class VitestRunner(TestRunner):
                     skipped.append(full_name)
 
         return TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            raw_output=output
+            passed=passed, failed=failed, skipped=skipped, raw_output=output
         )
 
 
@@ -671,7 +761,13 @@ class MochaRunner(TestRunner):
         project_root = find_js_project_root(repo_path)
         self._project_root = project_root
 
-        mocha_configs = [".mocharc.js", ".mocharc.json", ".mocharc.yml", ".mocharc.yaml", "mocha.opts"]
+        mocha_configs = [
+            ".mocharc.js",
+            ".mocharc.json",
+            ".mocharc.yml",
+            ".mocharc.yaml",
+            "mocha.opts",
+        ]
         for config in mocha_configs:
             if (project_root / config).exists():
                 score += 50
@@ -679,10 +775,7 @@ class MochaRunner(TestRunner):
 
         pkg = get_package_json(project_root)
         if pkg:
-            all_deps = {
-                **pkg.get("dependencies", {}),
-                **pkg.get("devDependencies", {})
-            }
+            all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             if "mocha" in all_deps:
                 score += 40
 
@@ -717,10 +810,11 @@ class MochaRunner(TestRunner):
     def get_current_version(self) -> Optional[str]:
         """Return current Node.js major version."""
         import re
+
         available, version = self.check_runtime()
         if not available:
             return None
-        match = re.search(r'v?(\d+)', version)
+        match = re.search(r"v?(\d+)", version)
         return match.group(1) if match else None
 
     def get_required_version(self, repo_path: Path) -> Optional[str]:
@@ -747,7 +841,11 @@ class MochaRunner(TestRunner):
         elif pm == "bun":
             return pm, ["bun", "install"], ["bun"]
         else:
-            return pm, ["npm", "install", "--legacy-peer-deps", "--ignore-scripts"], ["npm", "exec", "--"]
+            return (
+                pm,
+                ["npm", "install", "--legacy-peer-deps", "--ignore-scripts"],
+                ["npm", "exec", "--"],
+            )
 
     def install_deps(self, repo_path: Path, timeout: int = 300) -> Tuple[bool, str]:
         """Install JavaScript dependencies."""
@@ -776,17 +874,21 @@ class MochaRunner(TestRunner):
         project_root = self._get_project_root(repo_path)
         _, _, run_cmd = self._get_pm_commands(repo_path)
 
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode='w') as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json_path = Path(f.name)
 
         try:
             cmd = run_cmd + [
                 "mocha",
-                "--reporter", "json",
-                f"--reporter-option", f"output={json_path}"
+                "--reporter",
+                "json",
+                "--reporter-option",
+                f"output={json_path}",
             ]
 
-            returncode, stdout, stderr = self._run_command(cmd, project_root, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, project_root, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to parse JSON output file
@@ -824,9 +926,15 @@ class MochaRunner(TestRunner):
 
     def _parse_mocha_stdout(self, data: dict, output: str) -> TestResult:
         """Parse Mocha JSON from stdout."""
-        passed = [t.get("fullTitle", t.get("title", "")) for t in data.get("passes", [])]
-        failed = [t.get("fullTitle", t.get("title", "")) for t in data.get("failures", [])]
-        skipped = [t.get("fullTitle", t.get("title", "")) for t in data.get("pending", [])]
+        passed = [
+            t.get("fullTitle", t.get("title", "")) for t in data.get("passes", [])
+        ]
+        failed = [
+            t.get("fullTitle", t.get("title", "")) for t in data.get("failures", [])
+        ]
+        skipped = [
+            t.get("fullTitle", t.get("title", "")) for t in data.get("pending", [])
+        ]
 
         duration = data.get("stats", {}).get("duration", 0) / 1000.0
 
@@ -835,7 +943,7 @@ class MochaRunner(TestRunner):
             failed=failed,
             skipped=skipped,
             duration_seconds=duration,
-            raw_output=output
+            raw_output=output,
         )
 
 
@@ -859,7 +967,11 @@ class NodeTestRunner(TestRunner):
         scripts = pkg.get("scripts", {})
         test_script = scripts.get("test", "")
 
-        if "node --test" in test_script or "node --import" in test_script and "--test" in test_script:
+        if (
+            "node --test" in test_script
+            or "node --import" in test_script
+            and "--test" in test_script
+        ):
             score += 60
 
         all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
@@ -893,7 +1005,8 @@ class NodeTestRunner(TestRunner):
             )
             version = stdout.strip()
             import re
-            match = re.search(r'v?(\d+)', version)
+
+            match = re.search(r"v?(\d+)", version)
             if match:
                 major = int(match.group(1))
                 if major < 18:
@@ -905,10 +1018,11 @@ class NodeTestRunner(TestRunner):
     def get_current_version(self) -> Optional[str]:
         """Return current Node.js major version."""
         import re
+
         available, version = self.check_runtime()
         if not available:
             return None
-        match = re.search(r'v?(\d+)', version)
+        match = re.search(r"v?(\d+)", version)
         return match.group(1) if match else None
 
     def get_required_version(self, repo_path: Path) -> Optional[str]:
@@ -935,7 +1049,11 @@ class NodeTestRunner(TestRunner):
         elif pm == "bun":
             return pm, ["bun", "install"], ["bun"]
         else:
-            return pm, ["npm", "install", "--legacy-peer-deps", "--ignore-scripts"], ["npm"]
+            return (
+                pm,
+                ["npm", "install", "--legacy-peer-deps", "--ignore-scripts"],
+                ["npm"],
+            )
 
     def install_deps(self, repo_path: Path, timeout: int = 300) -> Tuple[bool, str]:
         """Install JavaScript dependencies."""
@@ -966,7 +1084,9 @@ class NodeTestRunner(TestRunner):
 
         try:
             cmd = run_cmd + ["test"]
-            returncode, stdout, stderr = self._run_command(cmd, project_root, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, project_root, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             passed, failed, skipped = self._parse_tap_output(output)
@@ -976,7 +1096,7 @@ class NodeTestRunner(TestRunner):
                 failed=failed,
                 skipped=skipped,
                 raw_output=output,
-                exit_code=returncode
+                exit_code=returncode,
             )
             if returncode != 0 and not failed:
                 result.error = f"node --test failed with exit code {returncode}"
@@ -988,32 +1108,33 @@ class NodeTestRunner(TestRunner):
     def _parse_tap_output(self, output: str) -> Tuple[List[str], List[str], List[str]]:
         """Parse TAP-like output from node --test."""
         import re
+
         passed = []
         failed = []
         skipped = []
 
-        for line in output.split('\n'):
-            pass_match = re.match(r'✔\s+(.+?)(?:\s+\(\d+\.?\d*m?s\))?$', line.strip())
+        for line in output.split("\n"):
+            pass_match = re.match(r"✔\s+(.+?)(?:\s+\(\d+\.?\d*m?s\))?$", line.strip())
             if pass_match:
                 passed.append(pass_match.group(1).strip())
                 continue
 
-            fail_match = re.match(r'✖\s+(.+?)(?:\s+\(\d+\.?\d*m?s\))?$', line.strip())
+            fail_match = re.match(r"✖\s+(.+?)(?:\s+\(\d+\.?\d*m?s\))?$", line.strip())
             if fail_match:
                 failed.append(fail_match.group(1).strip())
                 continue
 
-            skip_match = re.match(r'⊘\s+(.+?)(?:\s+\(\d+\.?\d*m?s\))?$', line.strip())
+            skip_match = re.match(r"⊘\s+(.+?)(?:\s+\(\d+\.?\d*m?s\))?$", line.strip())
             if skip_match:
                 skipped.append(skip_match.group(1).strip())
                 continue
 
-            ok_match = re.match(r'ok \d+ - (.+)', line.strip())
+            ok_match = re.match(r"ok \d+ - (.+)", line.strip())
             if ok_match:
                 passed.append(ok_match.group(1).strip())
                 continue
 
-            not_ok_match = re.match(r'not ok \d+ - (.+)', line.strip())
+            not_ok_match = re.match(r"not ok \d+ - (.+)", line.strip())
             if not_ok_match:
                 failed.append(not_ok_match.group(1).strip())
                 continue

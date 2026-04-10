@@ -1,15 +1,12 @@
 import os
 import re
 import shutil
-import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .base import TestRunner, TestResult, TestTimeoutError
 
-COBOL_CHECK_INSTALL_DIR = os.environ.get(
-    "COBOL_CHECK_HOME", "/opt/cobol-check"
-)
+COBOL_CHECK_INSTALL_DIR = os.environ.get("COBOL_CHECK_HOME", "/opt/cobol-check")
 
 
 def _find_cobol_check_jar(repo_path: Path) -> Optional[Path]:
@@ -41,7 +38,10 @@ def _has_cobol_sources(repo_path: Path) -> bool:
         for f in files:
             if any(f.endswith(ext) for ext in exts):
                 return True
-        if root != str(repo_path) and len(os.path.relpath(root, repo_path).split(os.sep)) > 3:
+        if (
+            root != str(repo_path)
+            and len(os.path.relpath(root, repo_path).split(os.sep)) > 3
+        ):
             break
     return False
 
@@ -58,7 +58,9 @@ def _has_test_suites(repo_path: Path) -> bool:
 def _read_config_value(config_path: Path, key: str) -> Optional[str]:
     """Read a value from a Java-style .properties file."""
     try:
-        for line in config_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        for line in config_path.read_text(
+            encoding="utf-8", errors="replace"
+        ).splitlines():
             stripped = line.strip()
             if stripped.startswith("#") or "=" not in stripped:
                 continue
@@ -90,26 +92,39 @@ def _parse_cobol_check_output(output: str) -> TestResult:
 
         if stripped.startswith("TESTSUITE:"):
             continue
-        if not stripped.startswith("PASS:") and not stripped.startswith("**** FAIL:") and not stripped.startswith("FAIL:"):
-            suite_match = re.match(r'^[A-Za-z].*[a-z].*$', stripped)
-            if suite_match and not any(kw in stripped for kw in [
-                "TEST CASES", "PASSED", "FAILED", "CALLS NOT MOCKED",
-                "CobolCheck:", "EXPECTED", "WAS", "===",
-            ]):
+        if (
+            not stripped.startswith("PASS:")
+            and not stripped.startswith("**** FAIL:")
+            and not stripped.startswith("FAIL:")
+        ):
+            suite_match = re.match(r"^[A-Za-z].*[a-z].*$", stripped)
+            if suite_match and not any(
+                kw in stripped
+                for kw in [
+                    "TEST CASES",
+                    "PASSED",
+                    "FAILED",
+                    "CALLS NOT MOCKED",
+                    "CobolCheck:",
+                    "EXPECTED",
+                    "WAS",
+                    "===",
+                ]
+            ):
                 current_suite = stripped
             continue
 
-        pass_match = re.match(r'\s*PASS:\s*(\d+)\.\s*(.+)', stripped)
-        fail_match = re.match(r'\*{4}\s*FAIL:\s*(\d+)\.\s*(.+)', stripped)
+        pass_match = re.match(r"\s*PASS:\s*(\d+)\.\s*(.+)", stripped)
+        fail_match = re.match(r"\*{4}\s*FAIL:\s*(\d+)\.\s*(.+)", stripped)
         if not fail_match:
-            fail_match = re.match(r'\s*FAIL:\s*(\d+)\.\s*(.+)', stripped)
+            fail_match = re.match(r"\s*FAIL:\s*(\d+)\.\s*(.+)", stripped)
 
         if pass_match:
-            num, desc = pass_match.group(1), pass_match.group(2).strip()
+            desc = pass_match.group(2).strip()
             name = f"{current_suite}::{desc}" if current_suite else desc
             passed.append(name)
         elif fail_match:
-            num, desc = fail_match.group(1), fail_match.group(2).strip()
+            desc = fail_match.group(2).strip()
             name = f"{current_suite}::{desc}" if current_suite else desc
             failed.append(name)
 
@@ -144,9 +159,17 @@ class CobolCheckRunner(TestRunner):
         if not self._check_command_exists("java"):
             return False, "Java runtime not found (required for cobol-check)"
         try:
-            _, cobc_ver, _ = self._run_command(["cobc", "--version"], Path.cwd(), timeout=10)
-            _, java_ver, java_err = self._run_command(["java", "-version"], Path.cwd(), timeout=10)
-            java_info = (java_ver or java_err or "").strip().splitlines()[0] if (java_ver or java_err) else "unknown"
+            _, cobc_ver, _ = self._run_command(
+                ["cobc", "--version"], Path.cwd(), timeout=10
+            )
+            _, java_ver, java_err = self._run_command(
+                ["java", "-version"], Path.cwd(), timeout=10
+            )
+            java_info = (
+                (java_ver or java_err or "").strip().splitlines()[0]
+                if (java_ver or java_err)
+                else "unknown"
+            )
             cobc_info = cobc_ver.strip().splitlines()[0] if cobc_ver else "unknown"
             return True, f"{cobc_info}; {java_info}"
         except Exception as e:
@@ -226,13 +249,20 @@ class CobolCheckRunner(TestRunner):
         if test_dir.is_dir():
             for child in test_dir.iterdir():
                 if child.is_dir():
-                    has_cut = any(f.suffix.lower() == ".cut" for f in child.iterdir() if f.is_file())
+                    has_cut = any(
+                        f.suffix.lower() == ".cut"
+                        for f in child.iterdir()
+                        if f.is_file()
+                    )
                     if has_cut:
                         programs.append(child.name)
 
         if not programs and source_dir.is_dir():
             for src_file in source_dir.iterdir():
-                if src_file.is_file() and src_file.suffix.lstrip(".") in source_suffixes:
+                if (
+                    src_file.is_file()
+                    and src_file.suffix.lstrip(".") in source_suffixes
+                ):
                     programs.append(src_file.stem)
 
         return programs

@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from .base import TestRunner, TestResult, TestTimeoutError
-from .parsers import parse_dotnet_trx, parse_junit_xml
+from .base import TestResult, TestRunner, TestTimeoutError
+from .parsers import parse_dotnet_trx
 
 
 class DotNetRunner(TestRunner):
@@ -36,7 +36,10 @@ class DotNetRunner(TestRunner):
             for csproj in csproj_files:
                 try:
                     content = csproj.read_text()
-                    if any(fw in content.lower() for fw in ["xunit", "nunit", "mstest", "test"]):
+                    if any(
+                        fw in content.lower()
+                        for fw in ["xunit", "nunit", "mstest", "test"]
+                    ):
                         score += 20
                         break
                 except Exception:
@@ -74,7 +77,7 @@ class DotNetRunner(TestRunner):
             returncode, stdout, _ = self._run_command(
                 ["dotnet", "--version"], Path.cwd(), timeout=10
             )
-            match = re.search(r'(\d+)', stdout)
+            match = re.search(r"(\d+)", stdout)
             return match.group(1) if match else None
         except Exception:
             return None
@@ -87,7 +90,7 @@ class DotNetRunner(TestRunner):
             try:
                 content = json.loads(global_json.read_text())
                 sdk_version = content.get("sdk", {}).get("version", "")
-                match = re.search(r'^(\d+)', sdk_version)
+                match = re.search(r"^(\d+)", sdk_version)
                 if match:
                     return match.group(1)
             except Exception:
@@ -97,7 +100,7 @@ class DotNetRunner(TestRunner):
         for csproj in repo_path.rglob("*.csproj"):
             try:
                 content = csproj.read_text()
-                match = re.search(r'<TargetFramework>net(\d+)', content)
+                match = re.search(r"<TargetFramework>net(\d+)", content)
                 if match:
                     return match.group(1)
             except Exception:
@@ -116,13 +119,17 @@ class DotNetRunner(TestRunner):
         """Restore .NET dependencies."""
         try:
             cmd = ["dotnet", "restore"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"dotnet restore failed: {stderr}"
 
             # Also build to ensure compilation works
             cmd = ["dotnet", "build", "--no-restore"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"dotnet build failed: {stderr}"
 
@@ -149,13 +156,18 @@ class DotNetRunner(TestRunner):
 
             try:
                 cmd = [
-                    "dotnet", "test",
+                    "dotnet",
+                    "test",
                     "--no-build",
-                    f"--logger", f"trx;LogFileName={trx_path}",
-                    "--verbosity", "normal"
+                    "--logger",
+                    f"trx;LogFileName={trx_path}",
+                    "--verbosity",
+                    "normal",
                 ]
 
-                returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+                returncode, stdout, stderr = self._run_command(
+                    cmd, repo_path, timeout=timeout
+                )
                 output = stdout + "\n" + stderr
 
                 # Try to parse TRX file
@@ -196,8 +208,7 @@ class DotNetRunner(TestRunner):
         # Pattern: Passed!  - Failed:     0, Passed:    10, Skipped:     0, Total:    10
         # or: Failed!  - Failed:     2, Passed:     8, Skipped:     0, Total:    10
         summary_match = re.search(
-            r'Failed:\s*(\d+),\s*Passed:\s*(\d+),\s*Skipped:\s*(\d+)',
-            output
+            r"Failed:\s*(\d+),\s*Passed:\s*(\d+),\s*Skipped:\s*(\d+)", output
         )
 
         if summary_match:
@@ -210,10 +221,7 @@ class DotNetRunner(TestRunner):
             skipped = [f"skipped_test_{i}" for i in range(skip_count)]
 
         result = TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            raw_output=output
+            passed=passed, failed=failed, skipped=skipped, raw_output=output
         )
 
         if result.total_tests == 0:

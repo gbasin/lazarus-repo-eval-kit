@@ -23,24 +23,22 @@ from __future__ import annotations
 
 import csv
 import json
-import os
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Literal
 
-from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from .taxonomy import (
+from eval_kit.llm_client import call_llm
+from eval_kit.task_taxonomy.taxonomy import (
     DiffStats,
     build_taxonomy_prompt,
     infer_horizon,
     load_taxonomy,
     parse_diff,
 )
-from llm_client import call_llm
 
 # ── Pydantic models for structured LLM output ──────────────────────────────
 
@@ -50,23 +48,36 @@ class DomainResult(BaseModel):
 
     primary: str = Field(description="Primary domain from the taxonomy")
     secondary: str = Field(description="Secondary domain (next-best fit)")
-    subdomain_tags: list[str] = Field(default_factory=list, description="Subdomain tags")
+    subdomain_tags: list[str] = Field(
+        default_factory=list, description="Subdomain tags"
+    )
 
 
 class ArchetypeResult(BaseModel):
     """Task archetype."""
 
     archetype: Literal[
-        "bootstrap", "build", "extend", "fix", "improve", "understand", "assure", "operate"
+        "bootstrap",
+        "build",
+        "extend",
+        "fix",
+        "improve",
+        "understand",
+        "assure",
+        "operate",
     ] = Field(description="Primary task archetype")
-    confidence: Literal["high", "medium", "low"] = Field(description="Classification confidence")
+    confidence: Literal["high", "medium", "low"] = Field(
+        description="Classification confidence"
+    )
     reasoning: str = Field(description="Brief explanation")
 
 
 class HorizonResult(BaseModel):
     """Scope / horizon."""
 
-    horizon: Literal["local", "repo", "system", "long_horizon"] = Field(description="Task scope")
+    horizon: Literal["local", "repo", "system", "long_horizon"] = Field(
+        description="Task scope"
+    )
     estimated_files: str = Field(description="Estimated files to touch")
     reasoning: str = Field(description="Brief explanation")
 
@@ -108,14 +119,10 @@ class TaxonomyClassifier:
         self,
         api_key: str | None = None,
         base_url: str = "https://api.openai.com/v1",
-        model: str = "gpt-4o",
+        model: str = "gpt-5.1",
         taxonomy_path: str | Path | None = None,
         concurrency: int = 32,
     ):
-        self.client = OpenAI(
-            api_key=api_key or os.environ.get("OPENAI_API_KEY"),
-            base_url=base_url,
-        )
         self.model = model
         self.taxonomy = load_taxonomy(taxonomy_path)
         self.taxonomy_prompt = build_taxonomy_prompt(self.taxonomy)
@@ -171,7 +178,6 @@ class TaxonomyClassifier:
                 {"role": "user", "content": user_prompt},
             ],
             model=self.model,
-            client=self.client,
             temperature=0.1,
             response_format=LLMClassification,
         )
@@ -204,13 +210,20 @@ class TaxonomyClassifier:
                     query=str(item.get(query_col, "") or ""),
                     repo=str(item.get(repo_col, "") or ""),
                     diff=str(item.get(diff_col, "") or ""),
-                    problem_statement=str(item.get(problem_col, "") or "") if problem_col else "",
-                    language=str(item.get(language_col, "") or "") if language_col else "",
+                    problem_statement=str(item.get(problem_col, "") or "")
+                    if problem_col
+                    else "",
+                    language=str(item.get(language_col, "") or "")
+                    if language_col
+                    else "",
                 )
             except Exception as exc:
                 print(f"[ERROR] Item {idx}: {exc}", file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
-                return idx, {"error": str(exc), "summary": f"Classification failed: {exc}"}
+                return idx, {
+                    "error": str(exc),
+                    "summary": f"Classification failed: {exc}",
+                }
 
         with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
             futures = {pool.submit(_do, i, item): i for i, item in enumerate(items)}
@@ -275,10 +288,14 @@ Be precise.  When uncertain, indicate lower confidence."""
                 f"- Inferred horizon: {horizon} ({reason})",
             ]
             if diff_stats.ecosystem_tags:
-                sig.append(f"- Ecosystems: {', '.join(sorted(diff_stats.ecosystem_tags))}")
+                sig.append(
+                    f"- Ecosystems: {', '.join(sorted(diff_stats.ecosystem_tags))}"
+                )
             if diff_stats.domain_hints:
                 unique = list(set(diff_stats.domain_hints))[:5]
-                sig.append(f"- Domain signals: {'; '.join(f'{d} > {s}' for d, s in unique)}")
+                sig.append(
+                    f"- Domain signals: {'; '.join(f'{d} > {s}' for d, s in unique)}"
+                )
             flags = []
             if diff_stats.has_tests:
                 flags.append("tests")
@@ -378,7 +395,9 @@ def read_input(path: Path) -> list[dict[str, Any]]:
             reader = csv.DictReader(fh)
             return list(reader)
     else:
-        raise ValueError(f"Unsupported file format '{suffix}'. Use .jsonl, .ndjson, or .csv")
+        raise ValueError(
+            f"Unsupported file format '{suffix}'. Use .jsonl, .ndjson, or .csv"
+        )
 
 
 def write_output(rows: list[dict[str, Any]], path: Path) -> None:
@@ -402,7 +421,11 @@ def write_output(rows: list[dict[str, Any]], path: Path) -> None:
                 # Serialise nested structures to JSON strings for CSV cells
                 flat = {}
                 for k, v in row.items():
-                    flat[k] = json.dumps(v, default=str) if isinstance(v, (dict, list)) else v
+                    flat[k] = (
+                        json.dumps(v, default=str) if isinstance(v, (dict, list)) else v
+                    )
                 writer.writerow(flat)
     else:
-        raise ValueError(f"Unsupported output format '{suffix}'. Use .jsonl, .ndjson, or .csv")
+        raise ValueError(
+            f"Unsupported output format '{suffix}'. Use .jsonl, .ndjson, or .csv"
+        )

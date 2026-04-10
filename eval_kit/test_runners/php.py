@@ -50,7 +50,9 @@ class PHPUnitRunner(TestRunner):
     def detect(self, repo_path: Path) -> int:
         project_root = _find_php_project_root(repo_path)
         score = 0
-        if (project_root / "phpunit.xml").exists() or (project_root / "phpunit.xml.dist").exists():
+        if (project_root / "phpunit.xml").exists() or (
+            project_root / "phpunit.xml.dist"
+        ).exists():
             score += 50
         if (project_root / "vendor" / "bin" / "phpunit").exists():
             score += 40
@@ -59,8 +61,16 @@ class PHPUnitRunner(TestRunner):
         composer = _read_composer_json(project_root)
         if composer:
             deps = {
-                **(composer.get("require", {}) if isinstance(composer.get("require"), dict) else {}),
-                **(composer.get("require-dev", {}) if isinstance(composer.get("require-dev"), dict) else {}),
+                **(
+                    composer.get("require", {})
+                    if isinstance(composer.get("require"), dict)
+                    else {}
+                ),
+                **(
+                    composer.get("require-dev", {})
+                    if isinstance(composer.get("require-dev"), dict)
+                    else {}
+                ),
             }
             if "phpunit/phpunit" in deps:
                 score += 40
@@ -97,9 +107,15 @@ class PHPUnitRunner(TestRunner):
         composer = project_root / "composer.json"
         vendor_phpunit = project_root / "vendor" / "bin" / "phpunit"
         if not composer.exists():
-            return (True, "") if vendor_phpunit.exists() else (False, "composer.json not found")
+            return (
+                (True, "")
+                if vendor_phpunit.exists()
+                else (False, "composer.json not found")
+            )
         if not self._check_command_exists("composer"):
-            return (True, "") if vendor_phpunit.exists() else (False, "Composer not found")
+            return (
+                (True, "") if vendor_phpunit.exists() else (False, "Composer not found")
+            )
         try:
             cmd = ["composer", "install", "--no-interaction", "--no-progress"]
             rc, _, err = self._run_command(cmd, project_root, timeout=timeout)
@@ -115,7 +131,10 @@ class PHPUnitRunner(TestRunner):
             return ["php", "vendor/bin/phpunit", "--colors=never"]
         if (project_root / "vendor" / "bin" / "simple-phpunit").exists():
             return ["php", "vendor/bin/simple-phpunit", "--colors=never"]
-        if self._check_command_exists("composer") and (project_root / "composer.json").exists():
+        if (
+            self._check_command_exists("composer")
+            and (project_root / "composer.json").exists()
+        ):
             return ["composer", "test", "--", "--colors=never"]
         return ["phpunit", "--colors=never"]
 
@@ -125,11 +144,33 @@ class PHPUnitRunner(TestRunner):
             junit_path = Path(f.name)
         try:
             if (project_root / "vendor" / "bin" / "phpunit").exists():
-                cmd = ["php", "vendor/bin/phpunit", "--colors=never", "--log-junit", str(junit_path)]
+                cmd = [
+                    "php",
+                    "vendor/bin/phpunit",
+                    "--colors=never",
+                    "--log-junit",
+                    str(junit_path),
+                ]
             elif (project_root / "vendor" / "bin" / "simple-phpunit").exists():
-                cmd = ["php", "vendor/bin/simple-phpunit", "--colors=never", "--log-junit", str(junit_path)]
-            elif self._check_command_exists("composer") and (project_root / "composer.json").exists():
-                cmd = ["composer", "test", "--", "--colors=never", "--log-junit", str(junit_path)]
+                cmd = [
+                    "php",
+                    "vendor/bin/simple-phpunit",
+                    "--colors=never",
+                    "--log-junit",
+                    str(junit_path),
+                ]
+            elif (
+                self._check_command_exists("composer")
+                and (project_root / "composer.json").exists()
+            ):
+                cmd = [
+                    "composer",
+                    "test",
+                    "--",
+                    "--colors=never",
+                    "--log-junit",
+                    str(junit_path),
+                ]
             else:
                 cmd = ["phpunit", "--colors=never", "--log-junit", str(junit_path)]
             rc, out, err = self._run_command(cmd, project_root, timeout=timeout)
@@ -156,7 +197,9 @@ class PHPUnitRunner(TestRunner):
             except Exception:
                 pass
 
-    def _parse_fallback_output(self, output: str, returncode: int, tool: str) -> TestResult:
+    def _parse_fallback_output(
+        self, output: str, returncode: int, tool: str
+    ) -> TestResult:
         passed: List[str] = []
         failed: List[str] = []
         skipped: List[str] = []
@@ -165,7 +208,11 @@ class PHPUnitRunner(TestRunner):
         errors = 0
         skips = 0
 
-        m = re.search(r"Tests:\s*(\d+)(?:,\s*Assertions:\s*\d+)?(?:,\s*Failures:\s*(\d+))?(?:,\s*Errors:\s*(\d+))?(?:,\s*Skipped:\s*(\d+))?", output, re.IGNORECASE)
+        m = re.search(
+            r"Tests:\s*(\d+)(?:,\s*Assertions:\s*\d+)?(?:,\s*Failures:\s*(\d+))?(?:,\s*Errors:\s*(\d+))?(?:,\s*Skipped:\s*(\d+))?",
+            output,
+            re.IGNORECASE,
+        )
         if m:
             tests = int(m.group(1) or 0)
             failures = int(m.group(2) or 0)
@@ -182,7 +229,13 @@ class PHPUnitRunner(TestRunner):
         failed = [f"failed_test_{i}" for i in range(fail_count)]
         skipped = [f"skipped_test_{i}" for i in range(skips)]
 
-        result = TestResult(passed=passed, failed=failed, skipped=skipped, raw_output=output, exit_code=returncode)
+        result = TestResult(
+            passed=passed,
+            failed=failed,
+            skipped=skipped,
+            raw_output=output,
+            exit_code=returncode,
+        )
         if result.total_tests == 0 and returncode != 0:
             result.error = f"{tool} failed with exit code {returncode}"
         return result
@@ -202,13 +255,24 @@ class PestRunner(PHPUnitRunner):
         composer = _read_composer_json(project_root)
         if composer:
             deps = {
-                **(composer.get("require", {}) if isinstance(composer.get("require"), dict) else {}),
-                **(composer.get("require-dev", {}) if isinstance(composer.get("require-dev"), dict) else {}),
+                **(
+                    composer.get("require", {})
+                    if isinstance(composer.get("require"), dict)
+                    else {}
+                ),
+                **(
+                    composer.get("require-dev", {})
+                    if isinstance(composer.get("require-dev"), dict)
+                    else {}
+                ),
             }
             if "pestphp/pest" in deps:
                 score += 50
             scripts = composer.get("scripts", {})
-            if isinstance(scripts, dict) and "pest" in str(scripts.get("test", "")).lower():
+            if (
+                isinstance(scripts, dict)
+                and "pest" in str(scripts.get("test", "")).lower()
+            ):
                 score += 20
         return min(score, 100)
 
@@ -224,7 +288,13 @@ class PestRunner(PHPUnitRunner):
             junit_path = Path(f.name)
         try:
             if (project_root / "vendor" / "bin" / "pest").exists():
-                cmd = ["php", "vendor/bin/pest", "--colors=never", "--log-junit", str(junit_path)]
+                cmd = [
+                    "php",
+                    "vendor/bin/pest",
+                    "--colors=never",
+                    "--log-junit",
+                    str(junit_path),
+                ]
             else:
                 cmd = ["pest", "--colors=never", "--log-junit", str(junit_path)]
             rc, out, err = self._run_command(cmd, project_root, timeout=timeout)

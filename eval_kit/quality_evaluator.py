@@ -5,9 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from openai import OpenAI
-
-from llm_client import call_llm
+from eval_kit.llm_client import call_llm
 
 logger = logging.getLogger(__name__)
 
@@ -441,8 +439,8 @@ class QualityEvaluator:
             or os.environ.get("OPENAI_QUALITY_MODEL", "").strip()
             or DEFAULT_OPENAI_MODEL
         )
-        self.client = OpenAI(api_key=self.api_key)
         self.last_rejection_reason = None
+        self.client = None
 
     def _get_api_key(self) -> str:
         return os.environ.get("OPENAI_API_KEY", "")
@@ -502,7 +500,6 @@ class QualityEvaluator:
         files_changed: Optional[List[str]] = None,
     ) -> Tuple[bool, Optional[QualityScores]]:
         self.last_rejection_reason = None
-        inferred_statement = None
         inference_confidence = None
 
         if not problem_statement or not problem_statement.strip():
@@ -522,12 +519,10 @@ class QualityEvaluator:
             #     return False, None
 
             problem_statement = inferred.get("problem_statement")
-            inferred_statement = problem_statement
             inference_confidence = inferred.get("confidence")
 
         else:
-            inferred_statement = problem_statement
-            problem_statement = problem_statement
+            pass  # problem_statement already provided
 
         # If there are no tests, avoid asking the model to score test-related rubrics.
         no_tests = (not test_diff) or (not test_diff.strip())
@@ -706,7 +701,13 @@ class QualityEvaluator:
             {"role": "user", "content": prompt},
         ]
         try:
-            return call_llm(messages, model=self.openai_model, client=self.client, temperature=0)
+            return call_llm(
+                messages,
+                model=self.openai_model,
+                client=self.client,
+                api_key=self.api_key,
+                temperature=0,
+            )
         except Exception as e:
             logger.error(f"OpenAI API failed: {e}")
             return None

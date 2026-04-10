@@ -53,20 +53,22 @@ class GoTestRunner(TestRunner):
     def get_current_version(self) -> Optional[str]:
         """Return current Go version as major.minor."""
         import re
+
         available, version = self.check_runtime()
         if not available:
             return None
-        match = re.search(r'go(\d+\.\d+)', version)
+        match = re.search(r"go(\d+\.\d+)", version)
         return match.group(1) if match else None
 
     def get_required_version(self, repo_path: Path) -> Optional[str]:
         """Extract required Go version from go.mod."""
         import re
+
         go_mod = repo_path / "go.mod"
         if go_mod.exists():
             try:
                 content = go_mod.read_text()
-                match = re.search(r'^go\s+(\d+\.\d+)', content, re.MULTILINE)
+                match = re.search(r"^go\s+(\d+\.\d+)", content, re.MULTILINE)
                 if match:
                     return match.group(1)
             except Exception:
@@ -89,7 +91,10 @@ class GoTestRunner(TestRunner):
                     ["go", "mod", "tidy"], repo_path, timeout=timeout
                 )
                 if returncode2 != 0:
-                    return False, f"go mod download failed: {stderr}; go mod tidy failed: {stderr2}"
+                    return (
+                        False,
+                        f"go mod download failed: {stderr}; go mod tidy failed: {stderr2}",
+                    )
 
             return True, ""
         except TestTimeoutError:
@@ -109,7 +114,9 @@ class GoTestRunner(TestRunner):
         """Run go test and return results."""
         try:
             cmd = ["go", "test", "-json", "-v", "./..."]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Parse JSON output
@@ -118,7 +125,10 @@ class GoTestRunner(TestRunner):
 
             # Check for errors if no tests found
             if result.total_tests == 0:
-                if "no test files" in output.lower() or "no tests to run" in output.lower():
+                if (
+                    "no test files" in output.lower()
+                    or "no tests to run" in output.lower()
+                ):
                     result.error = "No tests found"
                 elif returncode != 0:
                     result.error = f"go test failed with exit code {returncode}"

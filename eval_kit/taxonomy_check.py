@@ -7,10 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
-from dotenv import load_dotenv
-
-load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=False)
-from task_taxonomy.classify import TaxonomyClassifier  # noqa: E402
+from eval_kit.task_taxonomy.classify import TaxonomyClassifier  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +162,7 @@ def run_taxonomy_for_accepted_prs(
     primary_language: str,
     get_patch: Callable[[dict[str, Any]], str | None],
     *,
-    model: str = "gpt-4o",
+    model: str = "gpt-5.1",
     base_url: str = "https://api.openai.com/v1",
     skip_taxonomy: bool = False,
     pr_number: int | None = None,
@@ -272,7 +269,7 @@ def run_taxonomy_classification(
     repo: str,
     repo_path: str | Path,
     primary_language: str = "",
-    model: str = "gpt-4o",
+    model: str = "gpt-5.1",
     base_url: str = "https://api.openai.com/v1",
     skip_taxonomy: bool = False,
 ) -> dict[str, Any]:

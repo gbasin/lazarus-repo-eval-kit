@@ -6,9 +6,7 @@ import subprocess
 from collections import defaultdict
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=False)
+from eval_kit.llm_client import call_llm
 
 DEFAULT_MODEL = "gpt-5.1"
 
@@ -1095,8 +1093,6 @@ Notes:
 - findings array should include ONLY new LLM-discovered issues (automated_confirmed=false) with specific file paths and line numbers; do NOT repeat automated findings
 - false_positives should list automated findings you are rejecting with a reason
 """
-
-    from llm_client import call_llm
 
     try:
         raw = call_llm(

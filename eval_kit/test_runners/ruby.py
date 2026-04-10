@@ -18,7 +18,7 @@ def get_required_ruby_version(repo_path: Path) -> Optional[str]:
     if ruby_version.exists():
         try:
             content = ruby_version.read_text().strip()
-            match = re.search(r'(\d+\.\d+)', content)
+            match = re.search(r"(\d+\.\d+)", content)
             if match:
                 return match.group(1)
         except Exception:
@@ -90,7 +90,7 @@ class RSpecRunner(TestRunner):
         available, version = self.check_runtime()
         if not available:
             return None
-        match = re.search(r'(\d+\.\d+)', version)
+        match = re.search(r"(\d+\.\d+)", version)
         return match.group(1) if match else None
 
     def get_required_version(self, repo_path: Path) -> Optional[str]:
@@ -111,7 +111,9 @@ class RSpecRunner(TestRunner):
 
             # Run bundle install
             cmd = ["bundle", "install"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"bundle install failed: {stderr}"
             return True, ""
@@ -131,18 +133,25 @@ class RSpecRunner(TestRunner):
     def run_tests(self, repo_path: Path, timeout: int = 600) -> TestResult:
         """Run RSpec and return results."""
         # Create temp file for JSON output
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode='w') as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json_path = Path(f.name)
 
         try:
             cmd = [
-                "bundle", "exec", "rspec",
-                "--format", "json",
-                "--out", str(json_path),
-                "--format", "progress"  # Also show progress to stdout
+                "bundle",
+                "exec",
+                "rspec",
+                "--format",
+                "json",
+                "--out",
+                str(json_path),
+                "--format",
+                "progress",  # Also show progress to stdout
             ]
 
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to parse JSON output
@@ -175,7 +184,7 @@ class RSpecRunner(TestRunner):
         failed = []
 
         # Look for summary line: X examples, Y failures
-        match = re.search(r'(\d+)\s+examples?,\s+(\d+)\s+failures?', output)
+        match = re.search(r"(\d+)\s+examples?,\s+(\d+)\s+failures?", output)
         if match:
             total = int(match.group(1))
             fail_count = int(match.group(2))
@@ -183,11 +192,7 @@ class RSpecRunner(TestRunner):
             passed = [f"example_{i}" for i in range(pass_count)]
             failed = [f"failed_example_{i}" for i in range(fail_count)]
 
-        result = TestResult(
-            passed=passed,
-            failed=failed,
-            raw_output=output
-        )
+        result = TestResult(passed=passed, failed=failed, raw_output=output)
 
         if result.total_tests == 0 and returncode != 0:
             result.error = f"rspec failed with exit code {returncode}"
@@ -212,7 +217,9 @@ class MinitestRunner(TestRunner):
 
         test_dir = repo_path / "test"
         if test_dir.exists() and test_dir.is_dir():
-            has_ruby_tests = any(test_dir.glob("**/*_test.rb")) or any(test_dir.glob("**/test_*.rb"))
+            has_ruby_tests = any(test_dir.glob("**/*_test.rb")) or any(
+                test_dir.glob("**/test_*.rb")
+            )
             if has_ruby_tests:
                 score += 40
             if (test_dir / "test_helper.rb").exists():
@@ -258,7 +265,7 @@ class MinitestRunner(TestRunner):
         available, version = self.check_runtime()
         if not available:
             return None
-        match = re.search(r'(\d+\.\d+)', version)
+        match = re.search(r"(\d+\.\d+)", version)
         return match.group(1) if match else None
 
     def get_required_version(self, repo_path: Path) -> Optional[str]:
@@ -276,7 +283,9 @@ class MinitestRunner(TestRunner):
                     return False, f"Failed to install bundler: {stderr}"
 
             cmd = ["bundle", "install"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"bundle install failed: {stderr}"
             return True, ""
@@ -293,7 +302,9 @@ class MinitestRunner(TestRunner):
         """Run Minitest and return results."""
         try:
             cmd = ["bundle", "exec", "rake", "test"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             result = self._parse_minitest_output(output, returncode)
@@ -312,8 +323,8 @@ class MinitestRunner(TestRunner):
 
         # Look for summary: X runs, Y assertions, Z failures, W errors, V skips
         match = re.search(
-            r'(\d+)\s+runs?,\s+(\d+)\s+assertions?,\s+(\d+)\s+failures?,\s+(\d+)\s+errors?,?\s*(\d+)?\s*skips?',
-            output
+            r"(\d+)\s+runs?,\s+(\d+)\s+assertions?,\s+(\d+)\s+failures?,\s+(\d+)\s+errors?,?\s*(\d+)?\s*skips?",
+            output,
         )
 
         if match:
@@ -328,10 +339,7 @@ class MinitestRunner(TestRunner):
             skipped = [f"skipped_test_{i}" for i in range(skips)]
 
         result = TestResult(
-            passed=passed,
-            failed=failed,
-            skipped=skipped,
-            raw_output=output
+            passed=passed, failed=failed, skipped=skipped, raw_output=output
         )
 
         if result.total_tests == 0 and returncode != 0:

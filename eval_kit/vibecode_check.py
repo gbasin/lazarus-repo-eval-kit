@@ -6,11 +6,9 @@ import subprocess
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from dotenv import load_dotenv
+from eval_kit.llm_client import call_llm
 
-load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=False)
-
-DEFAULT_MODEL = "gpt-4o"
+DEFAULT_MODEL = "gpt-5.1"
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -1227,8 +1225,6 @@ Return this exact JSON:
   "human_signals": ["specific evidence of human authorship seen in the code"],
   "summary": "2-3 sentence overall assessment"
 }}"""
-
-    from llm_client import call_llm
 
     try:
         raw = call_llm(

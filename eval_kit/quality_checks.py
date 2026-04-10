@@ -13,27 +13,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from production_quality_check import _check_repo as _check_repo_production
-from security_check import _check_repo as _check_repo_security
-from vibecode_check import _check_repo as _check_repo_vibecode
+from eval_kit.production_quality_check import _check_repo as _check_repo_production
+from eval_kit.security_check import _check_repo as _check_repo_security
+from eval_kit.vibecode_check import _check_repo as _check_repo_vibecode
 
 logger = logging.getLogger(__name__)
-
-
-def _get_openai_client():
-    """Create an OpenAI client from the OPENAI_API_KEY env var (loaded via .env)."""
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY is not set. Set it in your .env file or environment."
-        )
-    try:
-        from openai import OpenAI
-
-        return OpenAI(api_key=api_key)
-    except ImportError:
-        logger.warning("openai package not installed — LLM analysis will be skipped")
-        return None
 
 
 def run_vibe_coding_check(
@@ -44,10 +28,6 @@ def run_vibe_coding_check(
     repo_path: str | Path | None = None,
 ) -> tuple[str, str]:
     """Run vibecode check. Returns (critical_text, signals_text)."""
-    client = None if skip_llm else _get_openai_client()
-    if client is None and not skip_llm:
-        skip_llm = True
-
     existing = str(Path(repo_path).resolve()) if repo_path else None
     clone_base = ""
     if not existing:
@@ -60,7 +40,6 @@ def run_vibe_coding_check(
             token=token,
             clone_base=clone_base or ".",
             verbose_log=None,
-            client=client,
             skip_llm=skip_llm,
             existing_repo_path=existing,
         )
@@ -88,10 +67,6 @@ def run_security_check(
     repo_path: str | Path | None = None,
 ) -> tuple[str, str]:
     """Run security check. Returns (critical_text, signals_text)."""
-    client = None if skip_llm else _get_openai_client()
-    if client is None and not skip_llm:
-        skip_llm = True
-
     existing = str(Path(repo_path).resolve()) if repo_path else None
     clone_base = ""
     if not existing:
@@ -104,7 +79,6 @@ def run_security_check(
             token=token,
             clone_base=clone_base or ".",
             verbose_log=None,
-            client=client,
             skip_llm=skip_llm,
             existing_repo_path=existing,
         )
@@ -132,10 +106,6 @@ def run_production_quality_check(
     repo_path: str | Path | None = None,
 ) -> tuple[str, str]:
     """Run production quality check. Returns (critical_text, signals_text)."""
-    client = None if skip_llm else _get_openai_client()
-    if client is None and not skip_llm:
-        skip_llm = True
-
     existing = str(Path(repo_path).resolve()) if repo_path else None
     clone_base = ""
     if not existing:
@@ -148,7 +118,6 @@ def run_production_quality_check(
             token=token,
             clone_base=clone_base or ".",
             verbose_log=None,
-            client=client,
             skip_llm=skip_llm,
             existing_repo_path=existing,
         )

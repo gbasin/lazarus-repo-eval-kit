@@ -53,7 +53,7 @@ class CMakeRunner(TestRunner):
             returncode, stdout, stderr = self._run_command(
                 ["cmake", "--version"], Path.cwd(), timeout=10
             )
-            return True, stdout.strip().split('\n')[0]
+            return True, stdout.strip().split("\n")[0]
         except Exception as e:
             return False, str(e)
 
@@ -67,13 +67,17 @@ class CMakeRunner(TestRunner):
 
             # Configure with CMake
             cmd = ["cmake", "-B", "build", "-S", "."]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"cmake configure failed: {stderr}"
 
             # Build
             cmd = ["cmake", "--build", "build"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"cmake build failed: {stderr}"
 
@@ -97,7 +101,9 @@ class CMakeRunner(TestRunner):
 
         try:
             cmd = ["ctest", "--test-dir", str(build_dir), "--output-on-failure", "-V"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to find JUnit XML if CTest was configured to output it
@@ -125,7 +131,7 @@ class CMakeRunner(TestRunner):
         # Look for test results in CTest output
         # Pattern: 1/5 Test #1: test_name .......   Passed    0.01 sec
         # Pattern: 2/5 Test #2: test_name .......***Failed    0.01 sec
-        pattern = r'Test\s+#\d+:\s+(\S+)\s+\.+\s*(Passed|Failed|\*+Failed)'
+        pattern = r"Test\s+#\d+:\s+(\S+)\s+\.+\s*(Passed|Failed|\*+Failed)"
 
         for match in re.finditer(pattern, output, re.IGNORECASE):
             test_name = match.group(1)
@@ -138,7 +144,10 @@ class CMakeRunner(TestRunner):
 
         # Also look for summary
         # Pattern: 100% tests passed, 0 tests failed out of 5
-        summary_match = re.search(r'(\d+)%\s+tests\s+passed,\s+(\d+)\s+tests\s+failed\s+out\s+of\s+(\d+)', output)
+        summary_match = re.search(
+            r"(\d+)%\s+tests\s+passed,\s+(\d+)\s+tests\s+failed\s+out\s+of\s+(\d+)",
+            output,
+        )
         if summary_match and not passed and not failed:
             total = int(summary_match.group(3))
             fail_count = int(summary_match.group(2))
@@ -146,11 +155,7 @@ class CMakeRunner(TestRunner):
             passed = [f"test_{i}" for i in range(pass_count)]
             failed = [f"failed_test_{i}" for i in range(fail_count)]
 
-        result = TestResult(
-            passed=passed,
-            failed=failed,
-            raw_output=output
-        )
+        result = TestResult(passed=passed, failed=failed, raw_output=output)
 
         if result.total_tests == 0:
             if "no tests were found" in output.lower():
@@ -173,15 +178,26 @@ class MakeRunner(TestRunner):
 
         # Skip if this is clearly a non-C/C++ project
         non_c_markers = [
-            "package.json", "pyproject.toml", "setup.py", "requirements.txt",
-            "Gemfile", "Cargo.toml", "go.mod", "pom.xml", "build.gradle"
+            "package.json",
+            "pyproject.toml",
+            "setup.py",
+            "requirements.txt",
+            "Gemfile",
+            "Cargo.toml",
+            "go.mod",
+            "pom.xml",
+            "build.gradle",
         ]
         for marker in non_c_markers:
             if (repo_path / marker).exists():
                 return 0
 
         # Must have C/C++ source files
-        has_c_files = any(repo_path.rglob("*.c")) or any(repo_path.rglob("*.cpp")) or any(repo_path.rglob("*.cc"))
+        has_c_files = (
+            any(repo_path.rglob("*.c"))
+            or any(repo_path.rglob("*.cpp"))
+            or any(repo_path.rglob("*.cc"))
+        )
         has_h_files = any(repo_path.rglob("*.h")) or any(repo_path.rglob("*.hpp"))
         if not (has_c_files or has_h_files):
             return 0
@@ -194,9 +210,9 @@ class MakeRunner(TestRunner):
             try:
                 content = makefile.read_text()
                 # Check for test target
-                if re.search(r'^test\s*:', content, re.MULTILINE):
+                if re.search(r"^test\s*:", content, re.MULTILINE):
                     score += 40
-                if re.search(r'^check\s*:', content, re.MULTILINE):
+                if re.search(r"^check\s*:", content, re.MULTILINE):
                     score += 30
             except Exception:
                 pass
@@ -217,7 +233,7 @@ class MakeRunner(TestRunner):
             returncode, stdout, stderr = self._run_command(
                 ["make", "--version"], Path.cwd(), timeout=10
             )
-            return True, stdout.strip().split('\n')[0]
+            return True, stdout.strip().split("\n")[0]
         except Exception as e:
             return False, str(e)
 
@@ -227,13 +243,17 @@ class MakeRunner(TestRunner):
             # First check if there's a configure script
             if (repo_path / "configure").exists():
                 cmd = ["./configure"]
-                returncode, _, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+                returncode, _, stderr = self._run_command(
+                    cmd, repo_path, timeout=timeout
+                )
                 if returncode != 0:
                     return False, f"configure failed: {stderr}"
 
             # Run make
             cmd = ["make"]
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             if returncode != 0:
                 return False, f"make failed: {stderr}"
 
@@ -253,7 +273,9 @@ class MakeRunner(TestRunner):
             # Try 'make test' first, then 'make check'
             for target in ["test", "check"]:
                 cmd = ["make", target]
-                returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+                returncode, stdout, stderr = self._run_command(
+                    cmd, repo_path, timeout=timeout
+                )
                 output = stdout + "\n" + stderr
 
                 # If successful or we found tests, parse the output
@@ -264,8 +286,7 @@ class MakeRunner(TestRunner):
 
             # No tests found
             return TestResult(
-                error="No test target found in Makefile",
-                raw_output=output
+                error="No test target found in Makefile", raw_output=output
             )
 
         except TestTimeoutError as e:
@@ -278,17 +299,15 @@ class MakeRunner(TestRunner):
 
         # Look for common test output patterns
         # PASS: test_name or test_name ... ok
-        for match in re.finditer(r'(?:PASS|ok|passed):\s*(\S+)', output, re.IGNORECASE):
+        for match in re.finditer(r"(?:PASS|ok|passed):\s*(\S+)", output, re.IGNORECASE):
             passed.append(match.group(1))
 
-        for match in re.finditer(r'(?:FAIL|failed|error):\s*(\S+)', output, re.IGNORECASE):
+        for match in re.finditer(
+            r"(?:FAIL|failed|error):\s*(\S+)", output, re.IGNORECASE
+        ):
             failed.append(match.group(1))
 
-        result = TestResult(
-            passed=passed,
-            failed=failed,
-            raw_output=output
-        )
+        result = TestResult(passed=passed, failed=failed, raw_output=output)
 
         if result.total_tests == 0 and returncode != 0:
             result.error = f"make test failed with exit code {returncode}"
@@ -319,14 +338,20 @@ class GoogleTestRunner(TestRunner):
                 pass
 
         # Check for googletest directory
-        if (repo_path / "googletest").exists() or (repo_path / "third_party" / "googletest").exists():
+        if (repo_path / "googletest").exists() or (
+            repo_path / "third_party" / "googletest"
+        ).exists():
             score += 20
 
         # Check for test files with gtest includes
         for test_file in repo_path.rglob("*test*.cpp"):
             try:
                 content = test_file.read_text()
-                if "gtest/gtest.h" in content or "TEST(" in content or "TEST_F(" in content:
+                if (
+                    "gtest/gtest.h" in content
+                    or "TEST(" in content
+                    or "TEST_F(" in content
+                ):
                     score += 20
                     break
             except Exception:

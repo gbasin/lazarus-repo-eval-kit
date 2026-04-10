@@ -1,14 +1,13 @@
-from abc import ABC, abstractmethod
-from datetime import datetime
 import logging
 import re
 import time
+from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Callable, Dict, List, Optional
 
 import requests
 
-from repo_evaluator_helpers import HEADERS
-
+from eval_kit.repo_evaluator_helpers import HEADERS
 
 logger = logging.getLogger(__name__)
 

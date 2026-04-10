@@ -89,28 +89,63 @@ DEFAULT_TAXONOMY: dict[str, Any] = {
         "operate": "CI/CD, deployment, SRE, observability.",
     },
     "horizons": {
-        "local": {"description": "Single file or tightly scoped module.", "files": "1-3", "time": "< 30 min"},
-        "repo": {"description": "Multi-file, one repo, one subsystem.", "files": "4-20", "time": "30 min - 4 hours"},
-        "system": {"description": "Multi-service or external dependencies.", "files": "10-50+", "time": "4 hours - 2 days"},
-        "long_horizon": {"description": "Staged work, day-scale effort.", "files": "20-100+", "time": "> 2 days"},
+        "local": {
+            "description": "Single file or tightly scoped module.",
+            "files": "1-3",
+            "time": "< 30 min",
+        },
+        "repo": {
+            "description": "Multi-file, one repo, one subsystem.",
+            "files": "4-20",
+            "time": "30 min - 4 hours",
+        },
+        "system": {
+            "description": "Multi-service or external dependencies.",
+            "files": "10-50+",
+            "time": "4 hours - 2 days",
+        },
+        "long_horizon": {
+            "description": "Staged work, day-scale effort.",
+            "files": "20-100+",
+            "time": "> 2 days",
+        },
     },
     "vertical_tags": [
-        "enterprise_backoffice", "finance_payments", "crypto_blockchain",
-        "science_research", "bioinformatics", "healthcare",
-        "ecommerce", "media_publishing", "education_edtech",
+        "enterprise_backoffice",
+        "finance_payments",
+        "crypto_blockchain",
+        "science_research",
+        "bioinformatics",
+        "healthcare",
+        "ecommerce",
+        "media_publishing",
+        "education_edtech",
     ],
     "constraint_tags": [
-        "security_critical", "safety_critical", "compliance_heavy",
-        "realtime_latency_critical", "perf_throughput_critical",
-        "legacy_interop_heavy", "uncommon_language",
+        "security_critical",
+        "safety_critical",
+        "compliance_heavy",
+        "realtime_latency_critical",
+        "perf_throughput_critical",
+        "legacy_interop_heavy",
+        "uncommon_language",
     ],
     "ecosystem_tags": [
-        "jupyter_notebook", "terraform_iac", "kubernetes",
-        "aws", "gcp", "azure", "docker", "github_actions",
+        "jupyter_notebook",
+        "terraform_iac",
+        "kubernetes",
+        "aws",
+        "gcp",
+        "azure",
+        "docker",
+        "github_actions",
     ],
     "llm_capability_tags": [
-        "code_search_and_exploration", "intent_understanding",
-        "instruction_following", "tool_use", "planning",
+        "code_search_and_exploration",
+        "intent_understanding",
+        "instruction_following",
+        "tool_use",
+        "planning",
         "output_validation",
     ],
 }
@@ -121,23 +156,42 @@ DEFAULT_TAXONOMY: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 
 EXTENSION_TO_LANGUAGE: dict[str, str] = {
-    ".py": "python", ".pyi": "python",
-    ".js": "javascript", ".jsx": "javascript",
-    ".ts": "typescript", ".tsx": "typescript",
-    ".rs": "rust", ".go": "go",
-    ".java": "java", ".kt": "kotlin",
-    ".c": "c", ".h": "c",
-    ".cpp": "cpp", ".cc": "cpp", ".hpp": "cpp",
-    ".cs": "csharp", ".rb": "ruby", ".php": "php",
-    ".swift": "swift", ".sh": "shell", ".bash": "shell",
-    ".sql": "sql", ".html": "html", ".css": "css",
-    ".yaml": "yaml", ".yml": "yaml",
-    ".json": "json", ".toml": "toml",
-    ".proto": "protobuf", ".md": "markdown",
-    ".cu": "cuda", ".cuh": "cuda",
+    ".py": "python",
+    ".pyi": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".rs": "rust",
+    ".go": "go",
+    ".java": "java",
+    ".kt": "kotlin",
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".hpp": "cpp",
+    ".cs": "csharp",
+    ".rb": "ruby",
+    ".php": "php",
+    ".swift": "swift",
+    ".sh": "shell",
+    ".bash": "shell",
+    ".sql": "sql",
+    ".html": "html",
+    ".css": "css",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".json": "json",
+    ".toml": "toml",
+    ".proto": "protobuf",
+    ".md": "markdown",
+    ".cu": "cuda",
+    ".cuh": "cuda",
     ".tf": "terraform",
     ".dockerfile": "dockerfile",
-    ".bazel": "bazel", ".bzl": "bazel",
+    ".bazel": "bazel",
+    ".bzl": "bazel",
 }
 
 
@@ -158,16 +212,56 @@ FILE_ECOSYSTEM_PATTERNS: list[tuple[str, str]] = [
 
 # File path patterns → (domain, subdomain) hints
 FILE_DOMAIN_PATTERNS: list[tuple[str, str, str]] = [
-    (r"\.github/workflows/|Jenkinsfile", "Languages, Toolchains & Formal Methods", "CI/CD & build automation"),
-    (r"test[s_]?/|_test\.|\.test\.", "Languages, Toolchains & Formal Methods", "unit & integration testing"),
-    (r"k8s/|kubernetes/|helm/|deploy", "Infrastructure, Networking & Distributed Systems", "containers & orchestration"),
-    (r"terraform/|pulumi/", "Infrastructure, Networking & Distributed Systems", "infrastructure"),
-    (r"migrations?/|\.sql$", "Data, Databases & Information Systems", "relational databases (SQL)"),
-    (r"ml/|model[s]?/|train|inference", "AI/ML, Search & Ranking", "machine learning engineering"),
-    (r"cuda|\.cu$|gpu", "Compute, Performance, Numerics & Control", "GPU computing (CUDA, OpenCL)"),
-    (r"frontend/|components/|pages/", "Applications & User-Facing Platforms", "web frontend"),
-    (r"api/|routes/|handlers/", "Applications & User-Facing Platforms", "API design & development"),
-    (r"security/|auth/|crypto", "Security, Privacy & Reverse Engineering", "application security"),
+    (
+        r"\.github/workflows/|Jenkinsfile",
+        "Languages, Toolchains & Formal Methods",
+        "CI/CD & build automation",
+    ),
+    (
+        r"test[s_]?/|_test\.|\.test\.",
+        "Languages, Toolchains & Formal Methods",
+        "unit & integration testing",
+    ),
+    (
+        r"k8s/|kubernetes/|helm/|deploy",
+        "Infrastructure, Networking & Distributed Systems",
+        "containers & orchestration",
+    ),
+    (
+        r"terraform/|pulumi/",
+        "Infrastructure, Networking & Distributed Systems",
+        "infrastructure",
+    ),
+    (
+        r"migrations?/|\.sql$",
+        "Data, Databases & Information Systems",
+        "relational databases (SQL)",
+    ),
+    (
+        r"ml/|model[s]?/|train|inference",
+        "AI/ML, Search & Ranking",
+        "machine learning engineering",
+    ),
+    (
+        r"cuda|\.cu$|gpu",
+        "Compute, Performance, Numerics & Control",
+        "GPU computing (CUDA, OpenCL)",
+    ),
+    (
+        r"frontend/|components/|pages/",
+        "Applications & User-Facing Platforms",
+        "web frontend",
+    ),
+    (
+        r"api/|routes/|handlers/",
+        "Applications & User-Facing Platforms",
+        "API design & development",
+    ),
+    (
+        r"security/|auth/|crypto",
+        "Security, Privacy & Reverse Engineering",
+        "application security",
+    ),
 ]
 
 
@@ -312,12 +406,19 @@ def build_taxonomy_prompt(taxonomy: dict[str, Any]) -> str:
     lines.append("\n## HORIZONS (pick exactly one):")
     for key, val in taxonomy.get("horizons", {}).items():
         if isinstance(val, dict):
-            lines.append(f"  - {key}: {val.get('description', '')} (files: {val.get('files', '?')}, time: {val.get('time', '?')})")
+            lines.append(
+                f"  - {key}: {val.get('description', '')} (files: {val.get('files', '?')}, time: {val.get('time', '?')})"
+            )
         else:
             lines.append(f"  - {key}: {val}")
 
     # Tags
-    for tag_name in ("vertical_tags", "constraint_tags", "ecosystem_tags", "llm_capability_tags"):
+    for tag_name in (
+        "vertical_tags",
+        "constraint_tags",
+        "ecosystem_tags",
+        "llm_capability_tags",
+    ):
         label = tag_name.replace("_", " ").upper()
         tags = taxonomy.get(tag_name, [])
         if tags:

@@ -26,72 +26,36 @@ def main():
     parser = argparse.ArgumentParser(
         description="Analyze repository for F2P/P2P test coverage"
     )
-    parser.add_argument(
-        "repo_path",
-        help="Path to the repository"
-    )
-    parser.add_argument(
-        "--base",
-        help="Base commit SHA (before the PR)"
-    )
-    parser.add_argument(
-        "--head",
-        help="Head commit SHA (after the PR)"
-    )
-    parser.add_argument(
-        "--pr",
-        type=int,
-        default=0,
-        help="PR number"
-    )
-    parser.add_argument(
-        "--title",
-        default="",
-        help="PR title"
-    )
+    parser.add_argument("repo_path", help="Path to the repository")
+    parser.add_argument("--base", help="Base commit SHA (before the PR)")
+    parser.add_argument("--head", help="Head commit SHA (after the PR)")
+    parser.add_argument("--pr", type=int, default=0, help="PR number")
+    parser.add_argument("--title", default="", help="PR title")
     parser.add_argument(
         "--timeout",
         type=int,
         default=600,
-        help="Test timeout in seconds (default: 600)"
+        help="Test timeout in seconds (default: 600)",
+    )
+    parser.add_argument("--language", help="Language hint for runner detection")
+    parser.add_argument(
+        "--preflight", action="store_true", help="Only run pre-flight check"
     )
     parser.add_argument(
-        "--language",
-        help="Language hint for runner detection"
+        "--list-runners", action="store_true", help="List available test runners"
     )
     parser.add_argument(
-        "--preflight",
-        action="store_true",
-        help="Only run pre-flight check"
+        "--detect", action="store_true", help="Detect test runner for repository"
     )
-    parser.add_argument(
-        "--list-runners",
-        action="store_true",
-        help="List available test runners"
-    )
-    parser.add_argument(
-        "--detect",
-        action="store_true",
-        help="Detect test runner for repository"
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output as JSON"
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("--json", action="store_true", help="Output as JSON")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
     # Setup logging
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(levelname)s - %(message)s'
+        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
     # List runners
@@ -144,17 +108,17 @@ def main():
             print(f"Pre-flight check: {status}")
 
             if result["detected"]:
-                print(f"\nDetected:")
+                print("\nDetected:")
                 for k, v in result["detected"].items():
                     print(f"  {k}: {v}")
 
             if result["blockers"]:
-                print(f"\nBlockers:")
+                print("\nBlockers:")
                 for b in result["blockers"]:
                     print(f"  ❌ [{b['code']}] {b['message']}")
 
             if result["warnings"]:
-                print(f"\nWarnings:")
+                print("\nWarnings:")
                 for w in result["warnings"]:
                     print(f"  ⚠️  [{w['code']}] {w['message']}")
 
@@ -178,9 +142,9 @@ def main():
     if args.json:
         print(json.dumps(result.to_dict(), indent=2))
     else:
-        print(f"\n{'='*60}")
-        print(f"F2P/P2P Analysis Result")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("F2P/P2P Analysis Result")
+        print(f"{'=' * 60}")
 
         if args.pr:
             print(f"PR #{result.pr_number}: {result.pr_title}")
@@ -189,7 +153,7 @@ def main():
         print()
 
         if result.success:
-            print(f"✅ Analysis completed successfully")
+            print("✅ Analysis completed successfully")
             print()
             print(f"F2P Tests (Fail→Pass): {len(result.f2p_tests)}")
             if result.f2p_tests:
@@ -215,7 +179,7 @@ def main():
             else:
                 print("❌ PR has no P2P tests - REJECTED")
         else:
-            print(f"❌ Analysis failed")
+            print("❌ Analysis failed")
             print(f"Error: {result.error}")
             if result.error_code:
                 print(f"Code: {result.error_code}")

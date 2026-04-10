@@ -31,41 +31,32 @@ ALL_RUNNERS: List[Type[TestRunner]] = [
     # Python (pytest preferred over unittest)
     PytestRunner,
     UnittestRunner,
-
     # JavaScript/TypeScript (order: jest, vitest, mocha, node:test)
     JestRunner,
     VitestRunner,
     MochaRunner,
     NodeTestRunner,
-
     # Go
     GoTestRunner,
-
     # Rust
     CargoRunner,
-
     # JVM (gradle preferred over maven)
     GradleRunner,
     MavenRunner,
     SbtRunner,
-
     # Ruby (rspec preferred over minitest)
     RSpecRunner,
     MinitestRunner,
-
     # PHP (pest preferred over phpunit where both exist)
     PestRunner,
     PHPUnitRunner,
-
     # C/C++ (cmake preferred)
     GoogleTestRunner,
     CMakeRunner,
     MakeRunner,
-
     # .NET (Framework first, then Core/5+)
     DotNetFrameworkRunner,
     DotNetRunner,
-
     # COBOL
     CobolCheckRunner,
 ]
@@ -97,6 +88,7 @@ def _get_package_json_test_script(repo_path: Path) -> str:
     """
     try:
         import json
+
         pkg_path = repo_path / "package.json"
         if not pkg_path.exists():
             return ""
@@ -108,7 +100,9 @@ def _get_package_json_test_script(repo_path: Path) -> str:
         return ""
 
 
-def get_runner(repo_path: Path, language_hint: Optional[str] = None) -> Optional[TestRunner]:
+def get_runner(
+    repo_path: Path, language_hint: Optional[str] = None
+) -> Optional[TestRunner]:
     """
     Auto-detect and return the best test runner for a repository.
 
@@ -166,7 +160,9 @@ def get_runner(repo_path: Path, language_hint: Optional[str] = None) -> Optional
 
             logger.debug(f"{runner.name}: score={score}")
 
-            runner_script_match = bool(test_script and runner.name.lower() in test_script)
+            runner_script_match = bool(
+                test_script and runner.name.lower() in test_script
+            )
 
             if score > best_score:
                 best_score = score
@@ -185,13 +181,16 @@ def get_runner(repo_path: Path, language_hint: Optional[str] = None) -> Optional
     # If a language-hint-matching runner was detected and the overall winner is
     # a different language, prefer the hint-matching runner.  The repo_evaluator
     # already performed language analysis so the hint is a strong signal.
-    if (best_hint_runner is not None
-            and best_runner is not None
-            and best_hint_runner.name != best_runner.name):
+    if (
+        best_hint_runner is not None
+        and best_runner is not None
+        and best_hint_runner.name != best_runner.name
+    ):
         logger.info(
             f"Language hint '{language_hint}' overrides: "
             f"{best_hint_runner.name} (score: {best_hint_score}) over "
-            f"{best_runner.name} (score: {best_score})")
+            f"{best_runner.name} (score: {best_score})"
+        )
         best_runner = best_hint_runner
         best_score = best_hint_score
 
@@ -255,9 +254,11 @@ def list_available_runners() -> List[dict]:
     runners = []
     for runner_class in ALL_RUNNERS:
         runner = runner_class()
-        runners.append({
-            "name": runner.name,
-            "language": runner.language,
-            "class": runner_class.__name__,
-        })
+        runners.append(
+            {
+                "name": runner.name,
+                "language": runner.language,
+                "class": runner_class.__name__,
+            }
+        )
     return runners

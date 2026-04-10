@@ -13,6 +13,7 @@ import shutil
 @dataclass
 class TestResult:
     """Result of running tests at a single commit."""
+
     passed: List[str] = field(default_factory=list)  # Test names that passed
     failed: List[str] = field(default_factory=list)  # Test names that failed
     skipped: List[str] = field(default_factory=list)  # Test names that were skipped
@@ -33,6 +34,7 @@ class TestResult:
 @dataclass
 class F2PP2PResult:
     """Result of F2P/P2P analysis for a PR."""
+
     pr_number: int
     pr_title: str
     base_sha: str
@@ -45,9 +47,9 @@ class F2PP2PResult:
     p2f_tests: List[str] = field(default_factory=list)  # Pass → Fail (regressions)
 
     # 3-run test results
-    tests_base: Optional[TestResult] = None    # Pristine base
+    tests_base: Optional[TestResult] = None  # Pristine base
     tests_before: Optional[TestResult] = None  # Base + test files from head
-    tests_after: Optional[TestResult] = None   # Full head commit
+    tests_after: Optional[TestResult] = None  # Full head commit
 
     # Status
     success: bool = False
@@ -132,31 +134,37 @@ class F2PP2PResult:
 
 class TestRunnerError(Exception):
     """Base exception for test runner errors."""
+
     pass
 
 
 class RuntimeNotFoundError(TestRunnerError):
     """Required runtime (python, node, etc.) not installed."""
+
     pass
 
 
 class DependencyInstallError(TestRunnerError):
     """Failed to install dependencies."""
+
     pass
 
 
 class BuildError(TestRunnerError):
     """Failed to build/compile the project."""
+
     pass
 
 
 class TestTimeoutError(TestRunnerError):
     """Tests exceeded timeout."""
+
     pass
 
 
 class OutputParseError(TestRunnerError):
     """Failed to parse test output."""
+
     pass
 
 
@@ -232,30 +240,30 @@ class TestRunner(ABC):
             return False, f"{self.language} runtime not installed"
 
         if not self._versions_compatible(required, current):
-            return False, f"Repo requires {self.language} {required}, but {current} is installed"
+            return (
+                False,
+                f"Repo requires {self.language} {required}, but {current} is installed",
+            )
 
         return True, None
 
     def _versions_compatible(self, required: str, current: str) -> bool:
         """Check if current version satisfies required version (current >= required)."""
         try:
-            req_parts = [int(x) for x in required.split('.')]
-            cur_parts = [int(x) for x in current.split('.')]
+            req_parts = [int(x) for x in required.split(".")]
+            cur_parts = [int(x) for x in current.split(".")]
             return (cur_parts[0], cur_parts[1]) >= (req_parts[0], req_parts[1])
         except (IndexError, ValueError):
             return True
 
     def _run_command(
-        self,
-        cmd: List[str],
-        cwd: Path,
-        timeout: int = 300,
-        env: Optional[dict] = None
+        self, cmd: List[str], cwd: Path, timeout: int = 300, env: Optional[dict] = None
     ) -> Tuple[int, str, str]:
         """
         Run a shell command and return (return_code, stdout, stderr).
         """
         import os
+
         full_env = os.environ.copy()
         if env:
             full_env.update(env)
@@ -267,12 +275,14 @@ class TestRunner(ABC):
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                env=full_env
+                env=full_env,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
-            raise TestTimeoutError(f"Command timed out after {timeout}s: {' '.join(cmd)}")
-        except FileNotFoundError as e:
+            raise TestTimeoutError(
+                f"Command timed out after {timeout}s: {' '.join(cmd)}"
+            )
+        except FileNotFoundError:
             raise RuntimeNotFoundError(f"Command not found: {cmd[0]}")
 
     def _check_command_exists(self, cmd: str) -> bool:

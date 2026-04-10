@@ -2,16 +2,12 @@
 Python test runners: pytest, unittest.
 """
 
-import os
 import sys
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from .base import (
-    TestRunner, TestResult, RuntimeNotFoundError,
-    DependencyInstallError, TestTimeoutError
-)
+from .base import TestRunner, TestResult, TestTimeoutError
 from .parsers import parse_junit_xml, parse_pytest_output
 
 
@@ -54,7 +50,11 @@ class PytestRunner(TestRunner):
                 pass
 
         # Check requirements for pytest
-        for req_file in ["requirements.txt", "requirements-dev.txt", "requirements-test.txt"]:
+        for req_file in [
+            "requirements.txt",
+            "requirements-dev.txt",
+            "requirements-test.txt",
+        ]:
             req_path = repo_path / req_file
             if req_path.exists():
                 try:
@@ -69,7 +69,9 @@ class PytestRunner(TestRunner):
         for test_dir in test_dirs:
             test_path = repo_path / test_dir
             if test_path.exists() and test_path.is_dir():
-                has_python_tests = any(test_path.rglob("test_*.py")) or any(test_path.rglob("*_test.py"))
+                has_python_tests = any(test_path.rglob("test_*.py")) or any(
+                    test_path.rglob("*_test.py")
+                )
                 if has_python_tests:
                     score += 10
                 if (test_path / "conftest.py").exists():
@@ -98,7 +100,9 @@ class PytestRunner(TestRunner):
             if df_path.exists():
                 try:
                     content = df_path.read_text()
-                    match = re.search(r'FROM\s+python:(\d+\.\d+)', content, re.IGNORECASE)
+                    match = re.search(
+                        r"FROM\s+python:(\d+\.\d+)", content, re.IGNORECASE
+                    )
                     if match:
                         return match.group(1)
                 except Exception:
@@ -134,7 +138,7 @@ class PytestRunner(TestRunner):
         if setup_cfg.exists():
             try:
                 content = setup_cfg.read_text()
-                match = re.search(r'python_requires\s*=\s*>=?(\d+\.\d+)', content)
+                match = re.search(r"python_requires\s*=\s*>=?(\d+\.\d+)", content)
                 if match:
                     return match.group(1)
             except Exception:
@@ -151,18 +155,28 @@ class PytestRunner(TestRunner):
 
         # Check for pyproject.toml (modern Python)
         if (repo_path / "pyproject.toml").exists():
-            install_methods.append([python_cmd, "-m", "pip", "install", "-e", ".[dev,test]"])
+            install_methods.append(
+                [python_cmd, "-m", "pip", "install", "-e", ".[dev,test]"]
+            )
             install_methods.append([python_cmd, "-m", "pip", "install", "-e", "."])
 
         # Check for setup.py
         if (repo_path / "setup.py").exists():
-            install_methods.append([python_cmd, "-m", "pip", "install", "-e", ".[dev,test]"])
+            install_methods.append(
+                [python_cmd, "-m", "pip", "install", "-e", ".[dev,test]"]
+            )
             install_methods.append([python_cmd, "-m", "pip", "install", "-e", "."])
 
         # Check for requirements files
-        for req_file in ["requirements-dev.txt", "requirements-test.txt", "requirements.txt"]:
+        for req_file in [
+            "requirements-dev.txt",
+            "requirements-test.txt",
+            "requirements.txt",
+        ]:
             if (repo_path / req_file).exists():
-                install_methods.append([python_cmd, "-m", "pip", "install", "-r", req_file])
+                install_methods.append(
+                    [python_cmd, "-m", "pip", "install", "-r", req_file]
+                )
 
         # Always try to install pytest as fallback
         install_methods.append([python_cmd, "-m", "pip", "install", "pytest"])
@@ -170,7 +184,9 @@ class PytestRunner(TestRunner):
         errors = []
         for cmd in install_methods:
             try:
-                returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+                returncode, stdout, stderr = self._run_command(
+                    cmd, repo_path, timeout=timeout
+                )
                 if returncode == 0:
                     # Continue with remaining installs (don't return early)
                     continue
@@ -184,9 +200,7 @@ class PytestRunner(TestRunner):
         # Check if pytest is now available
         try:
             returncode, _, _ = self._run_command(
-                [python_cmd, "-m", "pytest", "--version"],
-                repo_path,
-                timeout=30
+                [python_cmd, "-m", "pytest", "--version"], repo_path, timeout=30
             )
             if returncode == 0:
                 return True, ""
@@ -217,14 +231,18 @@ class PytestRunner(TestRunner):
 
         try:
             cmd = [
-                python_cmd, "-m", "pytest",
+                python_cmd,
+                "-m",
+                "pytest",
                 "-v",
                 "--tb=short",
                 f"--junitxml={xml_path}",
-                "--continue-on-collection-errors"
+                "--continue-on-collection-errors",
             ]
 
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             # Try to parse JUnit XML first
@@ -241,7 +259,10 @@ class PytestRunner(TestRunner):
 
             # If we couldn't parse any tests, check for errors
             if result.total_tests == 0:
-                if "no tests ran" in output.lower() or "collected 0 items" in output.lower():
+                if (
+                    "no tests ran" in output.lower()
+                    or "collected 0 items" in output.lower()
+                ):
                     result.error = "No tests found"
                 elif returncode != 0:
                     result.error = f"pytest failed with exit code {returncode}"
@@ -294,12 +315,17 @@ class UnittestRunner(TestRunner):
         if (repo_path / "manage.py").exists():
             score += 20
             django_tests = [
-                p for p in repo_path.rglob("tests.py")
+                p
+                for p in repo_path.rglob("tests.py")
                 if ".venv" not in p.parts and "venv" not in p.parts
             ]
             if django_tests:
                 score += 30
-            for req_file in ["requirements.txt", "requirements-dev.txt", "requirements-test.txt"]:
+            for req_file in [
+                "requirements.txt",
+                "requirements-dev.txt",
+                "requirements-test.txt",
+            ]:
                 req_path = repo_path / req_file
                 if req_path.exists():
                     try:
@@ -347,7 +373,9 @@ class UnittestRunner(TestRunner):
 
         for req_file in ["requirements.txt", "requirements-dev.txt"]:
             if (repo_path / req_file).exists():
-                install_methods.append([python_cmd, "-m", "pip", "install", "-r", req_file])
+                install_methods.append(
+                    [python_cmd, "-m", "pip", "install", "-r", req_file]
+                )
 
         if not install_methods:
             return True, ""  # No dependencies to install
@@ -355,7 +383,9 @@ class UnittestRunner(TestRunner):
         errors = []
         for cmd in install_methods:
             try:
-                returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+                returncode, stdout, stderr = self._run_command(
+                    cmd, repo_path, timeout=timeout
+                )
                 if returncode != 0:
                     errors.append(f"{' '.join(cmd)}: {stderr}")
             except Exception as e:
@@ -380,7 +410,9 @@ class UnittestRunner(TestRunner):
         if (repo_path / "manage.py").exists():
             cmd = [python_cmd, "manage.py", "test"]
             try:
-                returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+                returncode, stdout, stderr = self._run_command(
+                    cmd, repo_path, timeout=timeout
+                )
                 output = stdout + "\n" + stderr
                 return self._parse_unittest_output(output, returncode)
             except TestTimeoutError as e:
@@ -389,11 +421,15 @@ class UnittestRunner(TestRunner):
             standalone = self._find_standalone_tests(repo_path)
             if standalone:
                 print(f"running standalone tests: {standalone}")
-                return self._run_standalone_tests(python_cmd, repo_path, standalone, timeout)
+                return self._run_standalone_tests(
+                    python_cmd, repo_path, standalone, timeout
+                )
             cmd = [python_cmd, "-m", "unittest", "discover", "-v"]
 
         try:
-            returncode, stdout, stderr = self._run_command(cmd, repo_path, timeout=timeout)
+            returncode, stdout, stderr = self._run_command(
+                cmd, repo_path, timeout=timeout
+            )
             output = stdout + "\n" + stderr
 
             return self._parse_unittest_output(output, returncode)
@@ -446,9 +482,10 @@ class UnittestRunner(TestRunner):
 
         # Pattern: test_name (module.ClassName) ... ok/FAIL/ERROR/skipped
         import re
-        pattern = r'^(\w+)\s+\(([\w.]+)\)\s+\.\.\.\s+(ok|FAIL|ERROR|skipped)'
 
-        for line in output.split('\n'):
+        pattern = r"^(\w+)\s+\(([\w.]+)\)\s+\.\.\.\s+(ok|FAIL|ERROR|skipped)"
+
+        for line in output.split("\n"):
             match = re.match(pattern, line.strip())
             if match:
                 test_name = match.group(1)
@@ -465,7 +502,7 @@ class UnittestRunner(TestRunner):
 
         # Try to extract duration
         duration = 0.0
-        duration_match = re.search(r'Ran \d+ tests? in ([\d.]+)s', output)
+        duration_match = re.search(r"Ran \d+ tests? in ([\d.]+)s", output)
         if duration_match:
             try:
                 duration = float(duration_match.group(1))
@@ -477,7 +514,7 @@ class UnittestRunner(TestRunner):
             failed=failed,
             skipped=skipped,
             duration_seconds=duration,
-            raw_output=output
+            raw_output=output,
         )
 
         if result.total_tests == 0 and returncode != 0:
