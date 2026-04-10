@@ -23,8 +23,6 @@ from __future__ import annotations
 
 import csv
 import json
-import sys
-import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Literal
@@ -103,10 +101,6 @@ class TaxonomyClassifier:
 
     Parameters
     ----------
-    api_key : str | None
-        API key.  Falls back to ``$OPENAI_API_KEY``.
-    base_url : str
-        OpenAI-compatible base URL (default: OpenAI).
     model : str
         Model name to use for classification.
     taxonomy_path : str | Path | None
@@ -117,13 +111,9 @@ class TaxonomyClassifier:
 
     def __init__(
         self,
-        api_key: str | None = None,
-        base_url: str = "https://api.openai.com/v1",
-        model: str = "gpt-5.1",
         taxonomy_path: str | Path | None = None,
         concurrency: int = 32,
     ):
-        self.model = model
         self.taxonomy = load_taxonomy(taxonomy_path)
         self.taxonomy_prompt = build_taxonomy_prompt(self.taxonomy)
         self.concurrency = concurrency
@@ -177,7 +167,6 @@ class TaxonomyClassifier:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            model=self.model,
             temperature=0.1,
             response_format=LLMClassification,
         )
@@ -205,25 +194,15 @@ class TaxonomyClassifier:
         results: list[dict[str, Any] | None] = [None] * len(items)
 
         def _do(idx: int, item: dict) -> tuple[int, dict]:
-            try:
-                return idx, self.classify(
-                    query=str(item.get(query_col, "") or ""),
-                    repo=str(item.get(repo_col, "") or ""),
-                    diff=str(item.get(diff_col, "") or ""),
-                    problem_statement=str(item.get(problem_col, "") or "")
-                    if problem_col
-                    else "",
-                    language=str(item.get(language_col, "") or "")
-                    if language_col
-                    else "",
-                )
-            except Exception as exc:
-                print(f"[ERROR] Item {idx}: {exc}", file=sys.stderr)
-                traceback.print_exc(file=sys.stderr)
-                return idx, {
-                    "error": str(exc),
-                    "summary": f"Classification failed: {exc}",
-                }
+            return idx, self.classify(
+                query=str(item.get(query_col, "") or ""),
+                repo=str(item.get(repo_col, "") or ""),
+                diff=str(item.get(diff_col, "") or ""),
+                problem_statement=str(item.get(problem_col, "") or "")
+                if problem_col
+                else "",
+                language=str(item.get(language_col, "") or "") if language_col else "",
+            )
 
         with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
             futures = {pool.submit(_do, i, item): i for i, item in enumerate(items)}

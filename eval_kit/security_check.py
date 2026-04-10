@@ -8,8 +8,6 @@ from pathlib import Path
 
 from eval_kit.llm_client import call_llm
 
-DEFAULT_MODEL = "gpt-5.1"
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -1039,9 +1037,7 @@ _LLM_CATEGORIES = """
 """
 
 
-def _llm_analyze(
-    code_samples: str, automated: dict, client, model: str, lang: str
-) -> dict:
+def _llm_analyze(code_samples: str, automated: dict, lang: str) -> dict:
     """Single LLM call per repo covering all 9 security categories."""
 
     # Summarise automated findings for context
@@ -1100,8 +1096,6 @@ Notes:
                 {"role": "system", "content": _LLM_SYSTEM},
                 {"role": "user", "content": prompt},
             ],
-            model=model,
-            client=client,
             temperature=0,
         )
         raw = raw.strip()
@@ -1231,8 +1225,6 @@ def _check_repo(
     repo: str,
     token: str,
     clone_base: str,
-    client=None,
-    model: str = DEFAULT_MODEL,
     skip_llm: bool = False,
     sample_tokens: int = 8000,
     verbose_log=None,
@@ -1337,7 +1329,7 @@ def _check_repo(
 
     # LLM — single call per repo
     llm_result: dict = {}
-    if not skip_llm and client:
+    if not skip_llm:
         if verbose_log:
             verbose_log(f"    Running LLM security analysis for {repo} ...")
         code_samples = _smart_sample_security(
@@ -1356,9 +1348,7 @@ def _check_repo(
                 "supply_chain": d8,
                 "cors_headers": d9,
             }
-            llm_result = _llm_analyze(
-                code_samples, automated_grouped, client, model, lang
-            )
+            llm_result = _llm_analyze(code_samples, automated_grouped, lang)
             result["llm_analysis"] = llm_result
             result["llm_summary"] = llm_result.get("summary", "")
 

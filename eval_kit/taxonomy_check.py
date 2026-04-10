@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
@@ -162,8 +161,6 @@ def run_taxonomy_for_accepted_prs(
     primary_language: str,
     get_patch: Callable[[dict[str, Any]], str | None],
     *,
-    model: str = "gpt-5.1",
-    base_url: str = "https://api.openai.com/v1",
     skip_taxonomy: bool = False,
     pr_number: int | None = None,
     concurrency: int = 8,
@@ -176,12 +173,6 @@ def run_taxonomy_for_accepted_prs(
     """
     if skip_taxonomy:
         return []
-
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY is not set. Set it in your .env file or environment."
-        )
 
     prs: list[dict[str, Any]] = []
     for p in accepted_prs:
@@ -218,27 +209,24 @@ def run_taxonomy_for_accepted_prs(
         meta_nums.append(num)
 
     logger.info(
-        "Running PR-level taxonomy for %s/%s: %d PR(s), model=%s concurrency=%s",
+        "Running PR-level taxonomy for %s/%s: %d PR(s), concurrency=%s",
         owner,
         repo,
         len(items),
-        model,
         concurrency,
     )
 
+    classifier = TaxonomyClassifier(
+        concurrency=max(1, int(concurrency)),
+    )
     try:
-        classifier = TaxonomyClassifier(
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-            concurrency=max(1, int(concurrency)),
-        )
         raw_results = classifier.classify_batch(items)
     except Exception as e:
-        logger.warning(
-            "Taxonomy batch classification failed for %s/%s: %s", owner, repo, e
-        )
-        return []
+        logger.error(f"Taxonomy classification failed: {e}")
+        # Return error records for all items if batch fails
+        raw_results = [
+            {"error": str(e), "summary": "Error during classification"}
+        ] * len(items)
 
     per_pr_out: list[dict[str, Any]] = []
 
@@ -253,12 +241,7 @@ def run_taxonomy_for_accepted_prs(
             "instance_id": iid,
             "repo": item["repo"],
         }
-        if res.get("error"):
-            entry["error"] = res["error"]
-            entry["summary"] = res.get("summary", "")
-            logger.warning("Taxonomy error for PR #%s: %s", num, res["error"])
-        else:
-            entry.update(_serialise_result(res))
+        entry.update(_serialise_result(res))
         per_pr_out.append(entry)
 
     return per_pr_out
@@ -269,8 +252,6 @@ def run_taxonomy_classification(
     repo: str,
     repo_path: str | Path,
     primary_language: str = "",
-    model: str = "gpt-5.1",
-    base_url: str = "https://api.openai.com/v1",
     skip_taxonomy: bool = False,
 ) -> dict[str, Any]:
     """Run taxonomy classification on a repository (legacy: README + git log, not PR-based).
@@ -280,50 +261,24 @@ def run_taxonomy_classification(
     if skip_taxonomy:
         return {}
 
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY is not set. Set it in your .env file or environment."
-        )
-
     query = _build_repo_query(owner, repo, repo_path, primary_language)
     git_log = _get_recent_git_log(repo_path)
 
     logger.info(
-        "Running legacy repo-level taxonomy for %s/%s (model=%s) ...",
+        "Running legacy repo-level taxonomy for %s/%s ...",
         owner,
         repo,
-        model,
     )
 
     try:
-        classifier = TaxonomyClassifier(
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-            concurrency=1,
-        )
-
+        classifier = TaxonomyClassifier(concurrency=1)
         result = classifier.classify(
             query=query,
             repo=f"{owner}/{repo}",
             diff=git_log,
             language=primary_language,
         )
-
-        if result.get("error"):
-            logger.warning(
-                "Taxonomy classification error for %s/%s: %s",
-                owner,
-                repo,
-                result["error"],
-            )
-            return {}
-
         return _serialise_result(result)
-
     except Exception as e:
-        logger.warning(
-            "Taxonomy classification exception for %s/%s: %s", owner, repo, e
-        )
+        logger.error(f"Taxonomy classification failed: {e}")
         return {}

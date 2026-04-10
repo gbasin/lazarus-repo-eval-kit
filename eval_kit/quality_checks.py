@@ -44,16 +44,10 @@ def run_vibe_coding_check(
             existing_repo_path=existing,
         )
         if result.get("error"):
-            logger.warning(
-                "Vibecode check error for %s/%s: %s", owner, repo, result["error"]
-            )
-            return f"Error: {result['error']}", ""
+            raise RuntimeError(result["error"])
         critical = result.get("final_details_critical", [])
         signals = result.get("final_details_signals", [])
         return "\n".join(critical), "\n".join(signals)
-    except Exception as e:
-        logger.warning("Vibecode check exception for %s/%s: %s", owner, repo, e)
-        return f"Error: {e}", ""
     finally:
         if clone_base and os.path.exists(clone_base):
             shutil.rmtree(clone_base, ignore_errors=True)
@@ -83,16 +77,10 @@ def run_security_check(
             existing_repo_path=existing,
         )
         if result.get("error"):
-            logger.warning(
-                "Security check error for %s/%s: %s", owner, repo, result["error"]
-            )
-            return f"Error: {result['error']}", ""
+            raise RuntimeError(result["error"])
         critical = result.get("final_details_critical", [])
         signals = result.get("final_details_signals", [])
         return "\n".join(critical), "\n".join(signals)
-    except Exception as e:
-        logger.warning("Security check exception for %s/%s: %s", owner, repo, e)
-        return f"Error: {e}", ""
     finally:
         if clone_base and os.path.exists(clone_base):
             shutil.rmtree(clone_base, ignore_errors=True)
@@ -122,16 +110,10 @@ def run_production_quality_check(
             existing_repo_path=existing,
         )
         if result.get("error"):
-            logger.warning(
-                "Production quality error for %s/%s: %s", owner, repo, result["error"]
-            )
-            return f"Error: {result['error']}", ""
+            raise RuntimeError(result["error"])
         critical = result.get("final_details_critical", [])
         signals = result.get("final_details_signals", [])
         return "\n".join(critical), "\n".join(signals)
-    except Exception as e:
-        logger.warning("Production quality exception for %s/%s: %s", owner, repo, e)
-        return f"Error: {e}", ""
     finally:
         if clone_base and os.path.exists(clone_base):
             shutil.rmtree(clone_base, ignore_errors=True)

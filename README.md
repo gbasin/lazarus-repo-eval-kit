@@ -26,10 +26,10 @@ You can find more information about the Lazarus project in here https://lazarus.
 ## What You Need
 
 - Python 3.6 or newer
-- The `requests`, `openai`, and `python-dotenv` libraries (install via `requirements.txt`)
+- The `requests`, `pydantic-ai`, and `python-dotenv` libraries (install via `requirements.txt`)
 - Git installed on your system
 - An API token from GitHub or Bitbucket (helps avoid rate limits and access private repos)
-- An **OpenAI API key** (required)
+- An **API key for your chosen LLM provider** (OpenAI by default; Anthropic and Google Gemini also supported)
 
 ## Getting Started
 
@@ -43,32 +43,43 @@ pip install -r requirements.txt
 
 ### Environment Setup
 
-An OpenAI API key is required to run the script. Without it, the script will exit with an error.
+An API key for your chosen LLM provider is required. Without it, the script will exit with an error.
 
 1. Copy the example env file:
    ```bash
    cp .env.example .env
    ```
-2. Edit `.env` and add your OpenAI API key:
-   ```
-   OPENAI_API_KEY=sk-your-actual-key-here
-   ```
-3. Get an API key from [OpenAI's platform](https://platform.openai.com/api-keys)
+2. Set `LLM_PROVIDER` (optional, defaults to `openai`) and the matching API key:
 
-The cost for one repository run is typically $1–$5 based on past experience; very large repositories may cost more.
+   | Provider | `LLM_PROVIDER` | Key variable | Where to get it |
+   |---|---|---|---|
+   | OpenAI (default) | `openai` | `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+   | Anthropic | `anthropic` | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
+   | Google Gemini | `google` | `GOOGLE_API_KEY` | [aistudio.google.com](https://aistudio.google.com/) |
+
+   Example `.env` for Anthropic:
+   ```
+   LLM_PROVIDER=anthropic
+   ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
+   ```
+
+The cost for one repository run varies by provider and model; typically $1–$5 based on past experience with OpenAI. Very large repositories may cost more.
 
 ### Optional LLM tuning
 
-These variables can be added to your `.env` file to control how the tool talks to OpenAI:
+These variables can be added to your `.env` file to control LLM behaviour:
 
 | Variable | Default | What it does |
 |---|---|---|
+| `LLM_PROVIDER` | `openai` | Which provider to use: `openai`, `anthropic`, or `google` |
+| `LLM_MODEL` | *(provider default)* | Override the model name within the selected provider (e.g. `gpt-4o`, `claude-opus-4-5`, `gemini-2.0-flash`) |
 | `LLM_CONCURRENCY` | `4` | How many LLM calls to make at the same time. Higher = faster, but more likely to hit rate limits. Lower = safer. |
 | `LLM_MAX_RETRIES` | `8` | How many times a failed LLM call is retried before giving up. |
 | `LLM_BACKOFF_BASE_DELAY` | `5.0` | How many seconds to wait before the first retry. The wait doubles each time: 5 s → 10 s → 20 s → … Raise this if you keep hitting rate limit errors. |
 
 Example:
 ```
+LLM_PROVIDER=anthropic
 LLM_CONCURRENCY=2
 LLM_MAX_RETRIES=10
 LLM_BACKOFF_BASE_DELAY=5.0
@@ -104,26 +115,6 @@ python repo_evaluator.py bitbucket:owner/repo --token $BITBUCKET_TOKEN --platfor
 # Use a local copy instead of cloning
 python repo_evaluator.py owner/repo --repo-path /path/to/local/repo --token $GITHUB_TOKEN
 ```
-
-
-## Quality Checks
-
-The evaluator can run three additional quality checks on repositories:
-
-1. **Vibecode Check** — Detects signs of AI-generated "vibe coding" in commit history
-2. **Security Check** — Looks for common security issues and anti-patterns
-3. **Production Quality Check** — Assesses overall code quality and maintainability
-
-Each check produces two outputs: a **critical** summary and detailed **signals**.
-
-### Running Quality Checks
-
-By default, quality checks run automatically with LLM analysis (requires `OPENAI_API_KEY` — see Environment Setup above):
-
-```bash
-python repo_evaluator.py owner/repo --token $GITHUB_TOKEN --json
-```
-
 
 ## JavaScript/TypeScript test execution (Jest) configuration
 
