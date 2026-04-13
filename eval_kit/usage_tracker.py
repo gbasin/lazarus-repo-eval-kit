@@ -107,8 +107,6 @@ class UsageTracker:
             raise CostLimitAborted()
 
 
-# Lazily initialized so that load_dotenv() in the entry-point runs first,
-# giving UsageTracker.__init__ the correct COST_WARNING_THRESHOLD value.
 _tracker: UsageTracker | None = None
 _tracker_lock = threading.Lock()
 

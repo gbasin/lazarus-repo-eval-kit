@@ -2890,7 +2890,6 @@ class RepoEvaluator:
 
         except CostLimitAborted:
             logger.warning("LLM cost limit reached — partial PR results will be saved.")
-            raise
         except Exception as e:
             logger.error(f"Error analyzing PRs: {e}")
 
@@ -3876,6 +3875,10 @@ def main():
 
         report = evaluator.evaluate()
         report_json = to_json(report)
+
+        if get_tracker()._abort:
+            logger.warning("LLM cost limit reached. Saving partial results.")
+            raise CostLimitAborted()
 
         if not args.skip_quality_checks:
             qc_results = run_all_quality_checks(
